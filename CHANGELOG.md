@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.7 – Wechsel ohne Hänger
+- <kbd>Win</kbd> und <kbd>Win</kbd> + <kbd>Tab</kbd> wechseln jetzt sofort direkt im Helfer – ohne Warteschlange
+- „Zurück“ kennt immer das zuletzt benutzte Fenster, egal wie du gewechselt hast (auch per Maus)
+- Tastenabfrage erneuert sich alle 30 Sekunden, damit Windows sie nicht still abschaltet
+- Fensterliste deutlich schneller (Programmpfade ohne Get-Process)
+
 ## 0.6.3
 - Fehler behoben: Fenster auf dem Zweitbildschirm ließen sich über das X nicht schließen
 - Zweitbildschirm zeichnet nur noch neu, wenn sich Fenster ändern (Uhr & Messwerte laufen trotzdem live)

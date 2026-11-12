@@ -145,7 +145,9 @@ function syncCompanions() {
     w.on('page-title-updated', (e) => e.preventDefault());
     w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
     companions.set(d.id, w);
+    w.once('ready-to-show', () => setTimeout(syncHwnds, 300));
   }
+  syncHwnds();
 }
 
 /* Programm/Website starten und das neue Fenster auf einen bestimmten Bildschirm schieben */
@@ -225,7 +227,7 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.once('ready-to-show', () => { win.show(); win.focus(); });
+  win.once('ready-to-show', () => { win.show(); win.focus(); setTimeout(syncHwnds, 500); });
   win.on('page-title-updated', (e) => e.preventDefault());
   win.on('focus', () => { applyTaskbar(); updateCorner(); pushWindows(); });
   win.on('blur', () => updateCorner());
@@ -285,40 +287,25 @@ function ownHandle() {
 function ourHandles() {
   return new Set([ownHandle(), ...[...companions.values()].map(hwndOf)].filter(Boolean));
 }
-function onWinKey(ev) {
-  if (!win || win.isDestroyed()) return;
-  const fg = Number(ev && ev.fg) || 0;
-  const mine = ownHandle();
-  if (win.isFocused() || (fg && fg === mine)) {
-    if (lastOther) helper.safe('focus', { h: lastOther });
-    else win.minimize();
-  } else {
-    if (fg && !ourHandles().has(fg)) lastOther = fg;
-    bringToFront();
-    send('winkey');
-  }
+/* Der Wechsel selbst passiert direkt im Helfer (sofort, ohne Warteschlange).
+   Hier wird nur nachbereitet: Taskleiste, Fensterliste, Zustand der Zweitbildschirme. */
+function onWinKey() {
+  setTimeout(() => { if (win && !win.isDestroyed() && win.isFocused()) { applyTaskbar(); send('winkey'); } }, 120);
 }
 helper.on('winkey', onWinKey);
 
-/* Windows + Tab: Schalter für die Seite(n) auf den Zweitbildschirmen.
-   Einmal drücken = nach vorne und dort bleiben (auch wenn du ins Spiel klickst),
-   nochmal drücken = wieder nach hinten. Der Fokus bleibt dabei, wo er ist. */
 function onWinTab(ev) {
-  const list = [...companions.values()].filter((w) => !w.isDestroyed());
-  if (!list.length) return onWinKey(ev);
-  const pinned = list.some((w) => w.pinnedFront);
-  for (const w of list) {
-    if (pinned) { w.pinnedFront = false; toBack(w); }
-    else showCompanion(w);
-  }
-}
-function showCompanion(w) {
-  w.pinnedFront = true;
-  w.showInactive();
-  w.moveTop();
-  send('companion-pinned');
+  const on = !!(ev && ev.pinned);
+  for (const w of companions.values()) if (!w.isDestroyed()) w.pinnedFront = on;
+  if (on) send('companion-pinned');
 }
 helper.on('wintab', onWinTab);
+
+/* Dem Helfer sagen, welche Fenster zur Bibliothek gehören */
+function syncHwnds() {
+  if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+  helper.safe('setHwnds', { lib: ownHandle(), comps: [...companions.values()].filter((w) => !w.isDestroyed()).map(hwndOf) });
+}
 
 async function applyTaskbar() {
   if (process.platform !== 'win32') return;
@@ -1062,6 +1049,7 @@ app.whenReady().then(async () => {
     if (!ok) return;
     applyTaskbar();
     helper.safe('winkey', { on: !!config.winKey });
+    syncHwnds();
     if (IS_SHELL_LAUNCH) runStartupEntries();
     pollRunning();
   });

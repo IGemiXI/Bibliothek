@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-1b1712?style=for-the-badge&logo=windows&logoColor=d6b268&labelColor=0b0a08" alt="Windows 10 | 11">
-  <img src="https://img.shields.io/badge/Version-0.6-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.6">
+  <img src="https://img.shields.io/badge/Version-0.7-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.7">
   <img src="https://img.shields.io/badge/Electron-33-1b1712?style=for-the-badge&logo=electron&logoColor=d6b268&labelColor=0b0a08" alt="Electron">
   <img src="https://img.shields.io/badge/Sprache-Deutsch-1b1712?style=for-the-badge&labelColor=0b0a08&color=6e5a32" alt="Deutsch">
 </p>

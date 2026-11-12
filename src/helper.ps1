@@ -49,34 +49,148 @@ public class GxAudio {
 // Kombinationen (Win+E, Win+Shift+S, Win+D …) funktionieren weiter wie gewohnt.
 public class GxHook {
   delegate IntPtr LLProc(int nCode, IntPtr wParam, IntPtr lParam);
+  delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int idObj, int idChild, uint thread, uint time);
   [StructLayout(LayoutKind.Sequential)] struct KB { public uint vk; public uint scan; public uint flags; public uint time; public IntPtr extra; }
   [StructLayout(LayoutKind.Sequential)] struct MSG { public IntPtr hwnd; public uint message; public IntPtr w; public IntPtr l; public uint time; public int x; public int y; }
   [DllImport("user32.dll")] static extern IntPtr SetWindowsHookEx(int id, LLProc fn, IntPtr mod, uint tid);
+  [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr h);
   [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr h, int n, IntPtr w, IntPtr l);
   [DllImport("kernel32.dll")] static extern IntPtr GetModuleHandle(string name);
+  [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] static extern int GetMessage(out MSG m, IntPtr h, uint a, uint b);
+  [DllImport("user32.dll")] static extern bool PostThreadMessage(uint tid, uint msg, IntPtr w, IntPtr l);
   [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int c);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr pid);
+  [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, uint flags);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+  [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr mod, WinEventProc fn, uint pid, uint tid, uint flags);
+
   static LLProc proc;
+  static WinEventProc fgProc;
   static IntPtr hook;
+  static uint hookThread;
   static bool winDown, combo, swallowed;
-  static void Emit(string ev, long fg) {
+  static long lastOther;
+  static bool pinned;
+
+  public static volatile bool Enabled = false;
+  public static long LibHwnd = 0;
+  public static long[] CompHwnds = new long[0];
+
+  static void Emit(string ev, long fg, int extra) {
     System.Threading.ThreadPool.QueueUserWorkItem(_ => {
-      Console.Out.WriteLine("{\"event\":\"" + ev + "\",\"fg\":" + fg + "}");
+      Console.Out.WriteLine("{\"event\":\"" + ev + "\",\"fg\":" + fg + ",\"pinned\":" + extra + "}");
       Console.Out.Flush();
     });
   }
-  public static volatile bool Enabled = false;
+
+  static bool IsOurs(long h) {
+    if (h == 0) return true;
+    if (h == LibHwnd) return true;
+    foreach (var c in CompHwnds) if (c == h) return true;
+    return false;
+  }
+
+  /* Fenster, die nie als „vorheriges Fenster“ zählen (Startmenü, Taskleiste, Desktop, Taskansicht …) */
+  static bool IsShellWindow(IntPtr h) {
+    var sb = new StringBuilder(256);
+    GetClassName(h, sb, 256);
+    string c = sb.ToString();
+    return c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd" || c == "Progman" || c == "WorkerW"
+      || c == "Windows.UI.Core.CoreWindow" || c == "XamlExplorerHostIslandWindow" || c == "ForegroundStaging"
+      || c == "MultitaskingViewFrame" || c == "TaskListThumbnailWnd" || c == "NotifyIconOverflowWindow" || c == "#32768";
+  }
+
+  /* Zuverlässig in den Vordergrund holen (mit Eingabe-Kopplung an das aktuelle Vordergrundfenster) */
+  public static void ForceForeground(IntPtr h) {
+    if (!IsWindow(h)) return;
+    if (IsIconic(h)) ShowWindow(h, 9);
+    IntPtr fg = GetForegroundWindow();
+    uint fgThread = GetWindowThreadProcessId(fg, IntPtr.Zero);
+    uint me = GetCurrentThreadId();
+    bool att = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+    BringWindowToTop(h);
+    SetForegroundWindow(h);
+    if (att) AttachThreadInput(me, fgThread, false);
+  }
+
+  static void SendBack(IntPtr h) {
+    IntPtr after = new IntPtr(1);
+    IntPtr prog = FindWindowSafe("Progman");
+    if (prog != IntPtr.Zero) {
+      IntPtr prev = GetWindow(prog, 3);
+      if (prev == h) return;
+      if (prev != IntPtr.Zero) after = prev;
+    }
+    SetWindowPos(h, after, 0, 0, 0, 0, 0x0013);
+  }
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string c, string w);
+  static IntPtr FindWindowSafe(string c) { return FindWindow(c, null); }
+
+  /* Windows-Taste: Bibliothek <-> letztes Fenster */
+  static void OnWin(long fg) {
+    if (LibHwnd != 0) {
+      if (fg == LibHwnd) {
+        if (lastOther != 0 && IsWindow(new IntPtr(lastOther))) ForceForeground(new IntPtr(lastOther));
+        else ShowWindow(new IntPtr(LibHwnd), 6);
+      } else {
+        ForceForeground(new IntPtr(LibHwnd));
+      }
+    }
+    Emit("winkey", fg, pinned ? 1 : 0);
+  }
+
+  /* Windows + Tab: Zweitbildschirm-Seiten nach vorne / wieder nach hinten (ohne Fokus zu ändern) */
+  static void OnWinTab(long fg) {
+    if (CompHwnds.Length > 0) {
+      pinned = !pinned;
+      foreach (var c in CompHwnds) {
+        var h = new IntPtr(c);
+        if (!IsWindow(h)) continue;
+        if (pinned) SetWindowPos(h, IntPtr.Zero, 0, 0, 0, 0, 0x0053); // HWND_TOP, NOSIZE|NOMOVE|NOACTIVATE|SHOWWINDOW
+        else SendBack(h);
+      }
+    }
+    Emit("wintab", fg, pinned ? 1 : 0);
+  }
+  public static void SetPinned(bool p) { pinned = p; }
+
   public static void Start() {
     var t = new System.Threading.Thread(() => {
+      hookThread = GetCurrentThreadId();
       proc = Callback;
       hook = SetWindowsHookEx(13, proc, GetModuleHandle(null), 0);
+      // Vordergrund-Wechsel mitschreiben -> „vorheriges Fenster“ stimmt immer
+      fgProc = (hk, ev, hwnd, o, c, th, tm) => {
+        long v = hwnd.ToInt64();
+        if (!IsOurs(v) && IsWindowVisible(hwnd) && !IsShellWindow(hwnd)) lastOther = v;
+      };
+      SetWinEventHook(3, 3, IntPtr.Zero, fgProc, 0, 0, 0); // EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT
+      // Alle 30 s die Tastenabfrage erneuern – Windows schaltet sie sonst still ab, wenn sie einmal zu langsam war
+      var timer = new System.Threading.Timer(_ => PostThreadMessage(hookThread, 0x8001, IntPtr.Zero, IntPtr.Zero), null, 30000, 30000);
       MSG m;
-      while (GetMessage(out m, IntPtr.Zero, 0, 0) > 0) { }
+      while (GetMessage(out m, IntPtr.Zero, 0, 0) > 0) {
+        if (m.message == 0x8001) {
+          UnhookWindowsHookEx(hook);
+          hook = SetWindowsHookEx(13, proc, GetModuleHandle(null), 0);
+          winDown = false;
+        }
+      }
+      GC.KeepAlive(timer);
     });
     t.IsBackground = true;
     t.Start();
   }
+
   static IntPtr Callback(int n, IntPtr w, IntPtr l) {
     if (n >= 0 && Enabled) {
       var k = (KB)Marshal.PtrToStructure(l, typeof(KB));
@@ -94,13 +208,20 @@ public class GxHook {
             keybd_event(0xE8, 0, 0, UIntPtr.Zero);
             keybd_event(0xE8, 0, 2, UIntPtr.Zero);
           }
-          if (winDown && !combo) Emit("winkey", GetForegroundWindow().ToInt64());
+          if (winDown && !combo) {
+            long fg = GetForegroundWindow().ToInt64();
+            System.Threading.ThreadPool.QueueUserWorkItem(_ => OnWin(fg));
+          }
           winDown = false;
           swallowed = false;
         }
         else if (winDown && isTab) {
           // Windows + Tab: Zweitbildschirm statt Taskansicht – Tab wird nicht an Windows weitergegeben
-          if (down) { combo = true; swallowed = true; Emit("wintab", GetForegroundWindow().ToInt64()); }
+          if (down && !swallowed) {
+            combo = true; swallowed = true;
+            long fg = GetForegroundWindow().ToInt64();
+            System.Threading.ThreadPool.QueueUserWorkItem(_ => OnWinTab(fg));
+          }
           return new IntPtr(1);
         }
         else if (winDown && down) combo = true;
@@ -174,7 +295,26 @@ public class GxIcon {
 }
 
 public class GxWin {
-  public class Info { public long h; public string title; public uint pid; public int l; public int t; public int r; public int b; }
+  public class Info { public long h; public string title; public uint pid; public string path; public int l; public int t; public int r; public int b; }
+  [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder name, ref int size);
+  static readonly Dictionary<uint, string> pathCache = new Dictionary<uint, string>();
+  /* Programmpfad zu einer Prozess-ID – schnell, ohne Get-Process */
+  static string PathOf(uint pid) {
+    string p;
+    if (pathCache.TryGetValue(pid, out p)) return p;
+    p = null;
+    IntPtr h = OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
+    if (h != IntPtr.Zero) {
+      var sb = new StringBuilder(1024); int size = sb.Capacity;
+      if (QueryFullProcessImageName(h, 0, sb, ref size)) p = sb.ToString();
+      CloseHandle(h);
+    }
+    if (pathCache.Count > 500) pathCache.Clear();
+    pathCache[pid] = p;
+    return p;
+  }
   [StructLayout(LayoutKind.Sequential)] struct RECT { public int L; public int T; public int R; public int B; }
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
   delegate bool EnumProc(IntPtr h, IntPtr l);
@@ -233,7 +373,7 @@ public class GxWin {
       uint pid; GetWindowThreadProcessId(h, out pid);
       if (pid == selfPid) return true;
       RECT rc; GetWindowRect(h, out rc);
-      list.Add(new Info { h = h.ToInt64(), title = title, pid = pid, l = rc.L, t = rc.T, r = rc.R, b = rc.B });
+      list.Add(new Info { h = h.ToInt64(), title = title, pid = pid, path = PathOf(pid), l = rc.L, t = rc.T, r = rc.R, b = rc.B });
       return true;
     }, IntPtr.Zero);
     return list;
@@ -332,9 +472,7 @@ while ($true) {
       'windows'   {
         $res = @()
         foreach ($w in [GxWin]::List([uint32]$a.selfPid)) {
-          $p = $null
-          try { $p = (Get-Process -Id $w.pid -ErrorAction SilentlyContinue).Path } catch {}
-          $res += @{ h = $w.h; title = $w.title; pid = $w.pid; path = $p; l = $w.l; t = $w.t; r = $w.r; b = $w.b }
+          $res += @{ h = $w.h; title = $w.title; pid = $w.pid; path = $w.path; l = $w.l; t = $w.t; r = $w.r; b = $w.b }
         }
         $data = $res
       }
@@ -376,6 +514,8 @@ while ($true) {
         $data = $res
       }
       'winkey'    { [GxHook]::Enabled = [bool]$a.on; $data = $true }
+      'setHwnds'  { [GxHook]::LibHwnd = [long]$a.lib; [GxHook]::CompHwnds = [long[]]@($a.comps); $data = $true }
+      'setPinned' { [GxHook]::SetPinned([bool]$a.on); $data = $true }
       'closeWin'  { [GxWin]::Close([long]$a.h); $data = $true }
       'uninstall' {
         $names = @('DisplayName', 'Publisher', 'InstallLocation', 'UninstallString', 'DisplayIcon')
