@@ -59,7 +59,13 @@ public class GxHook {
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   static LLProc proc;
   static IntPtr hook;
-  static bool winDown, combo;
+  static bool winDown, combo, swallowed;
+  static void Emit(string ev, long fg) {
+    System.Threading.ThreadPool.QueueUserWorkItem(_ => {
+      Console.Out.WriteLine("{\"event\":\"" + ev + "\",\"fg\":" + fg + "}");
+      Console.Out.Flush();
+    });
+  }
   public static volatile bool Enabled = false;
   public static void Start() {
     var t = new System.Threading.Thread(() => {
@@ -79,21 +85,25 @@ public class GxHook {
       bool down = msg == 0x100 || msg == 0x104;
       bool up = msg == 0x101 || msg == 0x105;
       bool isWin = k.vk == 0x5B || k.vk == 0x5C;
+      bool isTab = k.vk == 0x09;
       if (!injected) {
-        if (isWin && down) { if (!winDown) { winDown = true; combo = false; } }
+        if (isWin && down) { if (!winDown) { winDown = true; combo = false; swallowed = false; } }
         else if (isWin && up) {
-          if (winDown && !combo) {
+          if (winDown && (!combo || swallowed)) {
             // Unsichtbare Maskentaste: Windows bricht dadurch das Startmenü ab
             keybd_event(0xE8, 0, 0, UIntPtr.Zero);
             keybd_event(0xE8, 0, 2, UIntPtr.Zero);
-            long fg = GetForegroundWindow().ToInt64();
-            System.Threading.ThreadPool.QueueUserWorkItem(_ => {
-              Console.Out.WriteLine("{\"event\":\"winkey\",\"fg\":" + fg + "}");
-              Console.Out.Flush();
-            });
           }
+          if (winDown && !combo) Emit("winkey", GetForegroundWindow().ToInt64());
           winDown = false;
-        } else if (winDown && down) combo = true;
+          swallowed = false;
+        }
+        else if (winDown && isTab) {
+          // Windows + Tab: Zweitbildschirm statt Taskansicht – Tab wird nicht an Windows weitergegeben
+          if (down) { combo = true; swallowed = true; Emit("wintab", GetForegroundWindow().ToInt64()); }
+          return new IntPtr(1);
+        }
+        else if (winDown && down) combo = true;
       }
     }
     return CallNextHookEx(hook, n, w, l);

@@ -27,6 +27,8 @@ Den Ordner nach dem Einrichten nicht mehr verschieben, sonst findet der Autostar
 | Was | Wie |
 |---|---|
 | Zwischen Bibliothek und Spiel/Fenster wechseln | **Windows-Taste** (Win + E, Win + Shift + S usw. funktionieren weiter) |
+| Zweitbildschirm-Seite nach vorne / zurück | **Windows + Tab** (bei mehreren Zweitbildschirmen der Reihe nach) |
+| Spiel läuft schon | „Zum Spiel“ springt direkt hinein statt neu zu starten |
 | Suchen | einfach lostippen oder `Strg + K` |
 | Bibliothek nach vorne holen | Windows-Taste, Maus in die linke untere Ecke oder `Strg + Alt + G` |
 | Zwischen offenen Fenstern wechseln | Leiste „Geöffnet“ oben (bei mehreren Bildschirmen mit Bildschirmnummer) oder `Alt + Tab` |

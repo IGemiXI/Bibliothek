@@ -140,7 +140,8 @@ function syncCompanions() {
     });
     w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { companion: String(d.id) } });
     w.once('ready-to-show', () => { w.showInactive(); w.setBounds(d.bounds); setTimeout(() => toBack(w), 200); });
-    w.on('focus', () => setTimeout(() => toBack(w), 30));
+    w.on('focus', () => { if (!w.pinnedFront) setTimeout(() => toBack(w), 30); });
+    w.on('blur', () => { if (w.pinnedFront) { w.pinnedFront = false; setTimeout(() => toBack(w), 30); } });
     w.on('page-title-updated', (e) => e.preventDefault());
     w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
     companions.set(d.id, w);
@@ -281,6 +282,9 @@ let lastOther = null;
 function ownHandle() {
   try { const b = win.getNativeWindowHandle(); return b.length >= 8 ? Number(b.readBigInt64LE(0)) : b.readInt32LE(0); } catch { return 0; }
 }
+function ourHandles() {
+  return new Set([ownHandle(), ...[...companions.values()].map(hwndOf)].filter(Boolean));
+}
 function onWinKey(ev) {
   if (!win || win.isDestroyed()) return;
   const fg = Number(ev && ev.fg) || 0;
@@ -289,12 +293,44 @@ function onWinKey(ev) {
     if (lastOther) helper.safe('focus', { h: lastOther });
     else win.minimize();
   } else {
-    if (fg && fg !== mine) lastOther = fg;
+    if (fg && !ourHandles().has(fg)) lastOther = fg;
     bringToFront();
     send('winkey');
   }
 }
 helper.on('winkey', onWinKey);
+
+/* Windows + Tab: Seite auf dem Zweitbildschirm nach vorne (bei mehreren der Reihe nach), danach zurück */
+let lastOtherComp = null;
+function onWinTab(ev) {
+  const list = [...companions.entries()]
+    .map(([id, w]) => ({ w, nr: (displayList().find((d) => d.id === id) || {}).nr || 99 }))
+    .filter((x) => !x.w.isDestroyed())
+    .sort((a, b) => a.nr - b.nr)
+    .map((x) => x.w);
+  if (!list.length) return onWinKey(ev);
+  const fg = Number(ev && ev.fg) || 0;
+  const idx = list.findIndex((w) => w.isFocused() || hwndOf(w) === fg);
+  if (idx < 0) {
+    if (fg && !ourHandles().has(fg)) lastOtherComp = fg;
+    showCompanion(list[0]);
+  } else if (idx + 1 < list.length) {
+    showCompanion(list[idx + 1]);
+  } else {
+    list[idx].pinnedFront = false;
+    toBack(list[idx]);
+    if (lastOtherComp) helper.safe('focus', { h: lastOtherComp });
+  }
+}
+function showCompanion(w) {
+  w.pinnedFront = true;
+  w.show();
+  w.setAlwaysOnTop(true, 'screen-saver');
+  w.focus();
+  helper.safe('focus', { h: hwndOf(w) });
+  setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 250);
+}
+helper.on('wintab', onWinTab);
 
 async function applyTaskbar() {
   if (process.platform !== 'win32') return;
@@ -771,6 +807,12 @@ handle('launchGame', async (id) => {
   const g = cache.games.find((x) => x.id === id);
   if (!g) throw new Error('Spiel nicht gefunden');
   const v = gameView(g);
+  // Läuft das Spiel schon? Dann direkt hinein springen statt neu zu starten
+  if (g.installDir && process.platform === 'win32') {
+    const wins = await windowsWithMon();
+    const gw = wins.find((w) => w.path && U.isInside(w.path, g.installDir));
+    if (gw) { await helper.safe('focus', { h: gw.h }); lastOther = gw.h; return { focused: true }; }
+  }
   await runLaunch(v.launch);
   const s = stats.games[id] || (stats.games[id] = {});
   s.lastPlayed = Date.now();

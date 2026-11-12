@@ -213,9 +213,10 @@ function renderHome() {
         <h1>${esc(hero.name)}</h1>
         <div class="hero-stats">${stats.map(([k, v]) => `<div class="stat"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>
         <div class="hero-actions">
-          ${hero.running ? '<span class="running-pill"><span class="dot"></span>Läuft</span>' : `<button class="btn gold big" data-act="play" data-id="${esc(hero.id)}">${I.play}Spielen</button>`}
+          <button class="btn gold big" data-act="play" data-id="${esc(hero.id)}">${I.play}${hero.running ? 'Zum Spiel' : 'Spielen'}</button>
+          ${hero.running ? '<span class="running-pill"><span class="dot"></span>Läuft</span>' : ''}
           <button class="icon-btn" style="width:50px;height:50px;background:rgba(15,13,10,.6);border-color:#5a4a2a;color:var(--gold-light)" data-act="detail" data-id="${esc(hero.id)}" aria-label="Details">${I.dots}</button>
-          <span class="note">${esc(launchHint(hero))}</span>
+          <span class="note">${esc(hero.running ? 'Läuft gerade – ein Klick holt das Spiel nach vorne' : launchHint(hero))}</span>
         </div>
       </div>
     </section>`;
@@ -487,7 +488,7 @@ function renderSettings() {
             <button data-act="start-mode" data-m="shell" aria-pressed="${c.startMode === 'shell'}">Exklusiv</button>
           </div>
           <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">${c.startMode === 'shell' ? 'Die Bibliothek ersetzt den Windows-Desktop. Nach der PIN erscheint direkt die Bibliothek.' : c.startMode === 'autostart' ? 'Die Bibliothek startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen.' : 'Die Bibliothek startet nur, wenn du sie öffnest.'}</div>
-          ${tg('winKey', c.winKey, 'Windows-Taste', 'Schaltet zwischen Bibliothek und Spiel/Fenster hin und her')}
+          ${tg('winKey', c.winKey, 'Windows-Taste', 'Win: Bibliothek ↔ Spiel · Win + Tab: Zweitbildschirm')}
           ${tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft')}
           ${multiMon() ? tg('companion', c.companion, 'Zweitbildschirme', 'Eigene Seite mit Schnellstart statt Windows-Hintergrund') : ''}
           ${tg('hotCorner', c.hotCorner, 'Ecke unten links', 'Maus in die Ecke holt die Bibliothek zurück (nicht beim Spielen)')}
@@ -592,7 +593,7 @@ function openDetail(id) {
       <div class="detail-cover">${coverCard(g, { act: 'noop' })}</div>
       <div class="detail-info">
         <div class="row">
-          ${g.running ? '<span class="running-pill"><span class="dot"></span>Läuft gerade</span>' : `<button class="btn gold big" data-act="play" data-id="${esc(g.id)}">${I.play}Spielen</button>`}
+          <button class="btn gold big" data-act="play" data-id="${esc(g.id)}">${I.play}${g.running ? 'Zum Spiel' : 'Spielen'}</button>
           ${g.hasBnet && !(g.art && g.art.scene === 'castle') ? `<button class="btn" data-act="bnet" data-id="${esc(g.id)}">Battle.net öffnen</button>` : ''}
           <button class="btn quiet" data-act="g-fav" data-id="${esc(g.id)}">${I.star}${g.favorite ? 'Favorit entfernen' : 'Favorit'}</button>
         </div>
@@ -791,7 +792,8 @@ async function play(id) {
   const g = gameById(id);
   if (!g) return;
   closePopover();
-  if (await act(gx.launchGame(id))) toast(g.name + ' wird gestartet …');
+  const r = await act(gx.launchGame(id));
+  if (r && !r.focused) toast(g.name + ' wird gestartet …');
 }
 async function launchProg(id) {
   closePopover();
