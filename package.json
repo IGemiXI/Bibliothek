@@ -1,0 +1,20 @@
+{
+  "name": "bibliothek",
+  "productName": "Bibliothek",
+  "version": "0.1.0",
+  "description": "Bibliothek – eigene Startoberfläche für Windows im WoW-Forever-Stil",
+  "main": "src/main.js",
+  "author": "IGemiXI",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IGemiXI/bibliothek.git"
+  }
+}
