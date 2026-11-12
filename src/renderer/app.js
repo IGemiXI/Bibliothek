@@ -607,7 +607,7 @@ function openDetail(id) {
         <div><div class="eyebrow" style="margin-bottom:8px">Name</div>
           <div class="row"><input class="field" id="g-name" value="${esc(g.name)}" style="flex:1"><button class="btn small quiet" data-act="g-rename" data-id="${esc(g.id)}">Speichern</button>${g.name !== g.originalName ? `<button class="btn small quiet" data-act="g-rename-reset" data-id="${esc(g.id)}">Original</button>` : ''}</div></div>
         <div class="row">
-          ${g.source !== 'steam' ? `<button class="btn small gold" data-act="art-pick" data-id="${esc(g.id)}">Bilder auswählen</button>` : ''}
+          <button class="btn small gold" data-act="art-pick" data-id="${esc(g.id)}">Bilder auswählen</button>
           <button class="btn small quiet" data-act="g-cover" data-id="${esc(g.id)}">Eigenes Bild</button>
           <button class="btn small quiet" data-act="g-hero" data-id="${esc(g.id)}">Titelbild wählen</button>
           <button class="btn small quiet" data-act="g-launch" data-id="${esc(g.id)}">Startprogramm ändern</button>
@@ -774,7 +774,7 @@ function contextMenu(e, kind, id) {
   const item = kind === 'g' ? gameById(id) : progById(id);
   if (!item) return;
   const html = kind === 'g'
-    ? `<div class="menu"><button data-act="play" data-id="${esc(id)}">${I.play}Spielen</button><button data-act="detail" data-id="${esc(id)}">${I.dots}Details & Anpassen</button><button data-act="g-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><hr><button data-act="open-path" data-path="${esc(item.installDir)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Ordner öffnen</button><button class="danger" data-act="g-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`
+    ? `<div class="menu"><button data-act="play" data-id="${esc(id)}">${I.play}Spielen</button><button data-act="detail" data-id="${esc(id)}">${I.dots}Details & Anpassen</button><button data-act="art-pick" data-id="${esc(id)}">${I.star}Bilder auswählen</button><button data-act="g-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><hr><button data-act="open-path" data-path="${esc(item.installDir)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Ordner öffnen</button><button class="danger" data-act="g-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`
     : `<div class="menu"><button data-act="prog" data-id="${esc(id)}">${I.play}Starten</button><button data-act="p-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><button data-act="p-cat" data-id="${esc(id)}">${I.apps.replace('<svg ', '<svg width="18" height="18" ')}Kategorie: ${esc(catLabel(item.category))}</button>${item.lnk ? `<button data-act="show-in-folder" data-path="${esc(item.lnk)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Speicherort zeigen</button>` : ''}<hr><button class="danger" data-act="p-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`;
   popover({ x: e.clientX, y: e.clientY }, html);
 }

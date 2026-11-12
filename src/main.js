@@ -827,6 +827,11 @@ handle('artSearch', async (id, term) => {
   const t = (term && term.trim()) || Art.smartTerm(name);
   let games = await Art.sgdbSearch(t, config.sgdbKey);
   if (!games.length && !term) games = await Art.sgdbSearch(t.split(' ').slice(0, 3).join(' '), config.sgdbKey);
+  // Steam-Spiel: exakten Treffer über die Steam-Nummer nach vorne holen
+  if (!term && g.source === 'steam') {
+    const exact = await Art.sgdbBySteam(g.id.replace(/^steam-/, ''), config.sgdbKey);
+    if (exact) games = [exact].concat(games.filter((x) => x.id !== exact.id));
+  }
   return { term: t, games: games.slice(0, 8) };
 });
 handle('artImages', async (sgdbId) => {

@@ -54,6 +54,13 @@ async function sgdbSearch(term, key) {
   return ((r && r.data) || []).map((g) => ({ id: g.id, name: g.name, year: g.release_date ? new Date(g.release_date * 1000).getFullYear() : null }));
 }
 
+/* Steam-Spiele exakt über ihre Steam-Nummer finden */
+async function sgdbBySteam(appid, key) {
+  const r = await getJSON(`${SGDB}/games/steam/${appid}`, { Authorization: 'Bearer ' + key }).catch(() => null);
+  const g = r && r.data;
+  return g ? { id: g.id, name: g.name, year: g.release_date ? new Date(g.release_date * 1000).getFullYear() : null } : null;
+}
+
 async function sgdbFind(name, key) {
   // Erst der volle Name, dann schrittweise kürzer („World of Warcraft Forever“ → „World of Warcraft“)
   const words = smartTerm(name).split(' ');
@@ -135,4 +142,4 @@ async function saveImage(gameId, url, kind, dir) {
   return download(url, path.join(dir, `${safe}-${kind}-${Date.now()}.${e}`));
 }
 
-module.exports = { fetchArt, testKey, sgdbSearch, sgdbImages, smartTerm, saveImage };
+module.exports = { fetchArt, testKey, sgdbSearch, sgdbBySteam, sgdbImages, smartTerm, saveImage };
