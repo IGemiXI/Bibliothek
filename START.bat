@@ -14,27 +14,39 @@ if errorlevel 1 (
   exit /b 1
 )
 
-rem Updates von GitHub holen, wenn per "git clone" installiert
-if exist ".git" (
+rem Updates von GitHub holen. Danach startet sich diese Datei frisch neu,
+rem weil git sie beim Update ueberschrieben haben kann.
+if not "%~1"=="--weiter" if exist ".git" (
   where git >nul 2>nul
   if not errorlevel 1 (
     echo  Suche nach Updates ...
     git pull --ff-only --quiet
-    call npm install --no-audit --no-fund --loglevel=error
+    "%~f0" --weiter
   )
 )
 
-if not exist "node_modules\electron" (
+if not exist "node_modules\electron\package.json" (
   echo.
-  echo  Erster Start: Die Bibliothek wird eingerichtet ^(dauert ca. 1 Minute^) ...
+  echo  Die Bibliothek wird eingerichtet ^(dauert ca. 1 Minute^) ...
   echo.
-  call npm install --no-audit --no-fund
-  if errorlevel 1 (
-    echo.
-    echo  Die Einrichtung hat nicht geklappt. Bitte Internetverbindung pruefen und erneut starten.
-    pause
-    exit /b 1
-  )
+)
+call npm install --no-audit --no-fund --loglevel=error
+
+rem Electron laedt sein eigentliches Programm in einem eigenen Schritt nach.
+rem Falls npm diesen Schritt uebersprungen hat, hier selbst ausfuehren.
+if not exist "node_modules\electron\dist\electron.exe" (
+  echo  Lade Electron herunter ...
+  call node "node_modules\electron\install.js"
+)
+
+if not exist "node_modules\electron\dist\electron.exe" (
+  echo.
+  echo  Electron konnte nicht geladen werden.
+  echo  Bitte Internetverbindung pruefen und START.bat erneut starten.
+  echo  Wenn es weiter nicht klappt: den Ordner node_modules loeschen und neu versuchen.
+  echo.
+  pause
+  exit /b 1
 )
 
 start "" "node_modules\electron\dist\electron.exe" .
