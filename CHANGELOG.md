@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.7.1
+- Schnellstart-Kacheln vom Zweitbildschirm erscheinen auch links in der Seitenleiste auf Bildschirm 1
+
 ## 0.7 – Wechsel ohne Hänger
 - <kbd>Win</kbd> und <kbd>Win</kbd> + <kbd>Tab</kbd> wechseln jetzt sofort direkt im Helfer – ohne Warteschlange
 - „Zurück“ kennt immer das zuletzt benutzte Fenster, egal wie du gewechselt hast (auch per Maus)

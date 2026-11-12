@@ -436,3 +436,10 @@ body.companion { background: var(--bg); }
 .comp-win .x { display: flex; width: 30px; height: 30px; flex-shrink: 0; opacity: .55; }
 .comp-win:hover .x { opacity: 1; }
 .win-chip .x { top: 8px; width: 22px; height: 22px; }
+/* Schnellstart in der Seitenleiste */
+.side-quick { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin-right: -6px; padding-right: 6px; }
+.quick-nav { height: 40px; gap: 12px; font-size: 14px; }
+.sq-ic { position: relative; width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.sq-ic img { position: relative; z-index: 1; width: 22px; height: 22px; object-fit: contain; border-radius: 5px; }
+.sq-ic .mono { position: absolute; inset: 0; width: 24px; height: 24px; font-size: 11px; }
+.sq-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

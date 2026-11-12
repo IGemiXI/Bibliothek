@@ -143,6 +143,16 @@ document.addEventListener('load', (e) => {
   }
 }, true);
 
+/* ───────── Schnellstart (gleiche Kacheln wie auf dem Zweitbildschirm) ───────── */
+function hostOfUrl(url) { try { return new URL(/^https?:/i.test(url) ? url : 'https://' + url).hostname; } catch { return ''; } }
+function quickIcon(t) {
+  const mono = `<span class="mono">${esc((t.name || '?').charAt(0))}</span>`;
+  let src = t.icon;
+  if (!src && t.type === 'web') src = `https://www.google.com/s2/favicons?domain=${esc(hostOfUrl(t.url))}&sz=128`;
+  if (!src && t.type === 'program') { const p = progById(t.programId); src = p && p.icon; }
+  return src ? mono + `<img src="${esc(src)}" data-srcs="${attr([src])}" alt="">` : mono;
+}
+
 /* ───────── Seitenleiste ───────── */
 function renderSide() {
   const st = S.state;
@@ -157,7 +167,8 @@ function renderSide() {
     ${nav('folders', 'Ordner', I.folder)}
     <div class="side-label gap">Ablage</div>
     ${nav('inbox', 'Eingangskorb', I.inbox, inboxCount ? `<span class="badge">${inboxCount}</span>` : '')}
-    <div class="side-spacer"></div>
+    ${st && (st.config.quickTiles || []).length ? `<div class="side-label gap">Schnellstart</div>
+    <div class="side-quick">${st.config.quickTiles.map((t, i) => `<button class="nav quick-nav" data-act="side-tile" data-i="${i}" title="${esc(t.type === 'web' ? t.url : t.name)}"><span class="sq-ic">${quickIcon(t)}</span><span class="sq-t">${esc(t.name)}</span></button>`).join('')}</div>` : '<div class="side-spacer"></div>'}
     ${nav('settings', 'Einstellungen', I.gear)}
     <div class="profile">
       <div class="avatar">${esc((ownerName() || (st ? st.user : '?')).charAt(0).toUpperCase())}</div>
@@ -865,6 +876,7 @@ const ACTIONS = {
   close: () => closeOverlay(),
   search: () => openSearch(),
   filter: (d) => { S.gameFilter = d.f; renderView(); },
+  'side-tile': (d) => { const t = (S.state.config.quickTiles || [])[+d.i]; if (t) act(gx.openTile(t)); },
   pfilter: (d) => { S.progFilter = d.f; renderView(); },
   'cat-toggle': (d) => { S.openCats = Object.assign({}, S.openCats, { [d.k]: !(S.openCats || {})[d.k] }); renderView(); },
   'p-cat': (d, el) => {
