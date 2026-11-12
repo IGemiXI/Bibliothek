@@ -609,20 +609,39 @@ function selfCommand() {
   return app.isPackaged ? { exe, args: [] } : { exe, args: [app.getAppPath()] };
 }
 
+const LOGIN_NAME = 'Bibliothek';
 async function applyStartMode(mode) {
   const { exe, args } = selfCommand();
   if (process.platform !== 'win32') return;
+  const login = (on) => {
+    app.setLoginItemSettings({ openAtLogin: on, path: exe, args, name: LOGIN_NAME });
+    // alte Einträge aus früheren Versionen aufräumen
+    app.setLoginItemSettings({ openAtLogin: false, path: exe, args, name: 'Bibliothek.App' });
+  };
   if (mode === 'autostart') {
-    app.setLoginItemSettings({ openAtLogin: true, path: exe, args });
+    login(true);
     await helper.call('shellSet', { value: null });
   } else if (mode === 'shell') {
-    app.setLoginItemSettings({ openAtLogin: false, path: exe, args });
-    const q = (s) => '"' + s + '"';
+    // Exklusiv: Windows startet die Bibliothek statt Explorer. Zusätzlich im Autostart –
+    // falls Windows die Shell-Einstellung ignoriert, startet sie trotzdem (eine zweite Kopie beendet sich sofort).
+    login(true);
+    const q = (x) => '"' + x + '"';
     await helper.call('shellSet', { value: [q(exe)].concat(args.map(q)).concat(['--bibliothek-shell']).join(' ') });
   } else {
-    app.setLoginItemSettings({ openAtLogin: false, path: exe, args });
+    login(false);
     await helper.call('shellSet', { value: null });
   }
+  if (mode !== 'off') await helper.safe('enableStartup', { name: LOGIN_NAME });
+}
+
+/* Start protokollieren – zur Fehlersuche (%APPDATA%\\Bibliothek\\start.log) */
+function logStart(text) {
+  try {
+    const f = path.join(DATA, 'start.log');
+    let old = '';
+    try { old = fs.readFileSync(f, 'utf8').split('\n').slice(-200).join('\n'); } catch {}
+    fs.writeFileSync(f, old + new Date().toLocaleString('de-DE') + '  ' + text + '\n');
+  } catch {}
 }
 
 /**
@@ -1059,6 +1078,7 @@ ipcMain.on('corner-hit', () => bringToFront());
 /* ─────────────────────────── Start ─────────────────────────── */
 
 app.whenReady().then(async () => {
+  logStart(`Start · Modus ${config.startMode} · ${IS_SHELL_LAUNCH ? 'als Shell (Exklusiv)' : 'normal'} · Version ${app.getVersion()}`);
   createWindow();
   createCorner();
   setTimeout(syncCompanions, 1500);
@@ -1068,6 +1088,8 @@ app.whenReady().then(async () => {
     applyTaskbar();
     helper.safe('winkey', { on: !!config.winKey });
     syncHwnds();
+    // Startmodus bei jedem Start prüfen und reparieren (z. B. wenn Windows den Autostart deaktiviert hat)
+    if (config.startMode !== 'off') applyStartMode(config.startMode).catch((e) => logStart('Startmodus-Fehler: ' + e.message));
     if (IS_SHELL_LAUNCH) startExplorerBehind();
     pollRunning();
   });

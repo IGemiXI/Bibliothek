@@ -544,6 +544,16 @@ while ($true) {
         [void][System.Windows.Forms.Application]::SetSuspendState([System.Windows.Forms.PowerState]::Suspend, $false, $false)
         $data = $true
       }
+      'enableStartup' {
+        # Windows kann Autostart-Einträge unter „Autostart-Apps“ deaktivieren – hier wieder aktivieren
+        $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
+        if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null }
+        $v = Get-ItemProperty -Path $k -Name $a.name -ErrorAction SilentlyContinue
+        if ($v -and ($v.($a.name)[0] -band 1)) {
+          Set-ItemProperty -Path $k -Name $a.name -Value ([byte[]](2,0,0,0,0,0,0,0,0,0,0,0)) -Type Binary
+          $data = 'repariert'
+        } else { $data = 'ok' }
+      }
       'shellGet'  { $data = (Get-ItemProperty -Path $winlogon -Name Shell -ErrorAction SilentlyContinue).Shell }
       'shellSet'  {
         if ($a.value) { Set-ItemProperty -Path $winlogon -Name Shell -Value ([string]$a.value) }

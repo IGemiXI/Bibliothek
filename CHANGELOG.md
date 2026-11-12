@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.7.3
+- Fehler behoben: Bibliothek startete nach Neustart nicht, wenn Windows die Exklusiv-Einstellung ignoriert – jetzt zusätzlich im Autostart abgesichert
+- Autostart-Eintrag wird bei jedem Start geprüft und repariert
+- Startprotokoll unter `%APPDATA%\Bibliothek\start.log`
+
 ## 0.7.2
 - Exklusiv-Modus: Bibliothek ist nach der PIN sofort da, Explorer startet dahinter – Autostart-Programme, Infobereich und Datei-Explorer funktionieren wie gewohnt; bei einem Absturz bleibt der normale Desktop
 
