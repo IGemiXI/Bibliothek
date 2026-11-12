@@ -1,6 +1,7 @@
 ﻿# Bibliothek – Windows-Helfer
 # Läuft dauerhaft im Hintergrund und beantwortet Befehle der Bibliothek (eine JSON-Zeile pro Befehl).
 
+param([switch]$Hook)
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
 try { [Console]::InputEncoding  = New-Object System.Text.UTF8Encoding $false } catch {}
@@ -261,7 +262,7 @@ function Props($path, [string[]]$names) {
 }
 
 $winlogon = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon'
-[GxHook]::Start()
+if ($Hook) { [GxHook]::Start() }
 
 Send @{ id = 0; ok = $true; data = 'ready' }
 

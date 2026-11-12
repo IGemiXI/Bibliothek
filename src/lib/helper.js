@@ -9,8 +9,10 @@ const { EventEmitter } = require('events');
  * Ein Prozess für alles – so muss PowerShell nur einmal starten.
  */
 class Helper extends EventEmitter {
-  constructor() {
+  constructor(name, args = []) {
     super();
+    this.name = name;
+    this.extraArgs = args;
     this.proc = null;
     this.nextId = 1;
     this.pending = new Map();
@@ -23,7 +25,7 @@ class Helper extends EventEmitter {
       return this.readyPromise;
     }
     const script = path.join(__dirname, '..', 'helper.ps1').replace('app.asar', 'app.asar.unpacked');
-    this.proc = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], {
+    this.proc = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, ...this.extraArgs], {
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -44,7 +46,7 @@ class Helper extends EventEmitter {
       clearTimeout(p.timer);
       if (msg.ok) p.resolve(msg.data); else p.reject(new Error(msg.error || 'Helferfehler'));
     });
-    this.proc.stderr.on('data', (d) => console.error('[helper]', d.toString()));
+    this.proc.stderr.on('data', (d) => console.error('[' + this.name + ']', d.toString()));
     this.proc.on('exit', (code) => {
       console.error('[helper] beendet mit Code', code);
       for (const p of this.pending.values()) p.reject(new Error('Helfer beendet'));
@@ -79,4 +81,9 @@ class Helper extends EventEmitter {
   }
 }
 
-module.exports = new Helper();
+// Zwei Helfer: einer für schnelle Bedienung (Lautstärke, Fenster, Windows-Taste),
+// einer für schwere Arbeit im Hintergrund (Icons, Spiele-Suche) – so blockiert nichts.
+const fast = new Helper('helper', ['-Hook']);
+const worker = new Helper('worker');
+module.exports = fast;
+module.exports.worker = worker;

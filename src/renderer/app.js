@@ -201,9 +201,9 @@ function renderHome() {
     const heroSrcs = (hero.art && hero.art.hero) || [];
     const stats = [
       ['Zuletzt gespielt', fmtWhen(hero.lastPlayed)],
-      ['Spielzeit gesamt', fmtPlay(hero.playSec)],
+      ['Spielzeit gesamt', hero.playSec ? fmtPlay(hero.playSec) : 'Wird ab jetzt erfasst'],
     ];
-    if (hero.wowCharacter) stats.push(['Letzter Charakter', hero.wowCharacter.name + ' · ' + hero.wowCharacter.realm]);
+    if (hero.wowCharacter) stats.push(['Letzter Charakter', hero.wowCharacter.name + (hero.wowCharacter.realm ? ' · ' + hero.wowCharacter.realm : '')]);
     else stats.push(['Plattform', hero.sourceName]);
     heroHtml = `<section class="hero">
       ${GXArt.hero(hero.name, castle)}
@@ -464,6 +464,8 @@ function renderSettings() {
               <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font-size:14px;font-weight:600">Cover für alle Spiele</span>${c.hasSgdbKey ? '<span class="cat" style="border-color:#4a5a32;color:#cfe6b8">aktiv</span>' : ''}</div>
               <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:10px">Für Battle.net, Riot, Epic & Co. holt die Bibliothek Cover von SteamGridDB. Dafür brauchst du einen kostenlosen Schlüssel: <a data-act="open-url" data-url="https://www.steamgriddb.com/profile/preferences/api">Schlüssel holen</a> (Anmeldung mit Steam).</div>
               <div class="row"><input class="field" id="sgdb" type="password" placeholder="${c.hasSgdbKey ? '•••••••• gespeichert' : 'API-Schlüssel einfügen'}" autocomplete="off" style="flex:1"><button class="btn small quiet" data-act="sgdb-save">Speichern</button></div>
+              ${!c.hasSgdbKey ? '<div class="muted" style="font-size:11.5px;line-height:1.6;margin-top:10px">So geht\'s: Auf der Seite oben rechts mit Steam anmelden → „Generate API Key“ klicken → Schlüssel kopieren → hier einfügen → Speichern.</div>' : ''}
+              ${S.state.artStatus && S.state.artStatus.total ? `<div style="font-size:12px;margin-top:10px;color:${S.state.artStatus.error && !S.state.artStatus.found ? 'var(--danger)' : 'var(--text-3)'}">${S.state.artStatus.busy ? '<span class="spin" style="width:10px;height:10px;vertical-align:-1px"></span> Suche Cover … ' : ''}Cover gefunden: ${S.state.artStatus.found} von ${S.state.artStatus.total} Spielen außerhalb von Steam${S.state.artStatus.error && !S.state.artStatus.busy ? ' · ' + esc(S.state.artStatus.error) : ''}</div>` : ''}
             </div>
           </section>
         </div>
@@ -597,8 +599,8 @@ function openDetail(id) {
         <div class="kv">
           <span class="k">Plattform</span><span class="v">${esc(g.sourceName)}</span>
           <span class="k">Zuletzt gespielt</span><span class="v">${esc(fmtWhen(g.lastPlayed))}</span>
-          <span class="k">Spielzeit</span><span class="v">${esc(fmtPlay(g.playSec))}</span>
-          ${g.wowCharacter ? `<span class="k">Letzter Charakter</span><span class="v">${esc(g.wowCharacter.name)} · ${esc(g.wowCharacter.realm)}</span>` : ''}
+          <span class="k">Spielzeit</span><span class="v">${g.playSec ? esc(fmtPlay(g.playSec)) : 'Wird ab jetzt erfasst' + (g.source === 'steam' ? '' : ' (Battle.net & Co. speichern keine Spielzeit)')}</span>
+          ${g.wowCharacter ? `<span class="k">Letzter Charakter</span><span class="v">${esc(g.wowCharacter.name)}${g.wowCharacter.realm ? ' · ' + esc(g.wowCharacter.realm) : ''}</span>` : ''}
           <span class="k">Ordner</span><span class="v"><a data-act="open-path" data-path="${esc(g.installDir)}">${esc(g.installDir || '–')}</a></span>
           <span class="k">Startbefehl</span><span class="v">${esc(launchText)}${g.launchCustom ? ' <span class="muted">(eigener)</span>' : ''}</span>
         </div>

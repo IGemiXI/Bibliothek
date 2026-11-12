@@ -408,3 +408,12 @@ body.companion { background: var(--bg); }
 .qb.del:hover { border-color: #6a3a2e; color: var(--danger); }
 .mi-icon img, .chip img, .app-tile .ic img { object-fit: contain; }
 .quick.editing .qs { visibility: hidden; }
+/* 0.3.1: Begrüßung kompakter, Kacheln mit Luft, kein Hochspringen */
+.comp-hello { height: clamp(150px, 20vh, 230px); }
+.comp-hello-body { padding: 26px 34px; }
+.comp-hello-name { font-size: clamp(34px, 4.2vh, 50px); margin-top: 6px; }
+.comp-hello .comp-clock .t { font-size: clamp(30px, 4vh, 44px); }
+.comp-main { gap: 26px; }
+.quick-area { padding: 8px; align-items: safe center; }
+.quick-grid { align-content: safe center; }
+.quick:hover, .quick:focus-visible { transform: none; }

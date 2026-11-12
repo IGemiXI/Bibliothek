@@ -43,13 +43,17 @@ function searchTerm(name) {
 
 async function sgdbFind(name, key) {
   const auth = { Authorization: 'Bearer ' + key };
-  const term = searchTerm(name);
-  const r = await getJSON(`${SGDB}/search/autocomplete/${encodeURIComponent(term)}`, auth);
-  const list = (r && r.data) || [];
-  if (!list.length) return null;
-  // Exakter Treffer bevorzugt, sonst der erste
-  const exact = list.find((g) => norm(g.name) === norm(term));
-  return exact || list[0];
+  // Erst der volle Name, dann schrittweise kürzer („World of Warcraft Forever“ → „World of Warcraft“)
+  const words = searchTerm(name).split(' ');
+  for (let n = words.length; n >= Math.min(2, words.length); n--) {
+    const term = words.slice(0, n).join(' ');
+    const r = await getJSON(`${SGDB}/search/autocomplete/${encodeURIComponent(term)}`, auth);
+    const list = (r && r.data) || [];
+    if (!list.length) continue;
+    const exact = list.find((g) => norm(g.name) === norm(term));
+    return exact || list[0];
+  }
+  return null;
 }
 
 async function sgdbImages(gameId, key) {

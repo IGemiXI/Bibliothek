@@ -138,6 +138,11 @@ function wowLastCharacter(flavorDir) {
       }
     }
   }
+  if (best && /^\d+$/.test(best.realm)) {
+    const cfg = U.readText(path.join(flavorDir, 'WTF', 'Config.wtf')) || '';
+    const m = cfg.match(/SET realmName "([^"]+)"/i);
+    best.realm = m ? m[1] : '';
+  }
   return best;
 }
 
@@ -195,7 +200,7 @@ async function scanBattlenet(helper, uninstall) {
         launch: { kind: 'exe', target: exe, args: [], cwd: dir },
         bnetExe: bnetExe || null,
         art: { cover: [], hero: [], logo: [], scene: 'castle' },
-        wowCharacter: char ? { name: char.name, realm: char.realm } : null,
+        wowCharacter: char ? { name: char.name, realm: char.realm || '' } : null,
         extLastPlayed: char ? char.mtime : 0,
       });
     }

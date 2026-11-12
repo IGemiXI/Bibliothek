@@ -11,6 +11,7 @@ if (process.platform === 'win32') app.setAppUserModelId('Bibliothek.App');
 
 const U = require('./lib/util');
 const helper = require('./lib/helper');
+const worker = helper.worker;
 const { scanGames, wowLastCharacter } = require('./lib/games');
 const { scanPrograms, startMenuRoots, categorize, CATEGORY_LABELS } = require('./lib/programs');
 const Art = require('./lib/art');
@@ -324,13 +325,13 @@ async function fetchMissingArt(force) {
       const o = config.games[g.id] || {};
       const name = o.name || g.name;
       const a = artMap[g.id];
-      const fresh = a && a.name === name && (a.cover ? U.exists(a.cover) : Date.now() - (a.tried || 0) < 3 * 864e5);
+      const fresh = a && a.name === name && (a.cover ? U.exists(a.cover) : (a.withKey === !!config.sgdbKey && Date.now() - (a.tried || 0) < 3 * 864e5));
       if (fresh && !force) continue;
       try {
         const r = await Art.fetchArt({ id: g.id, name }, { dir: ART_DIR, key: config.sgdbKey, index: 0 });
-        artMap[g.id] = Object.assign({ name, tried: Date.now(), index: 0 }, r || {});
+        artMap[g.id] = Object.assign({ name, tried: Date.now(), index: 0, withKey: !!config.sgdbKey }, r || {});
       } catch (e) {
-        artMap[g.id] = { name, tried: Date.now(), error: e.message };
+        artMap[g.id] = { name, tried: Date.now(), error: e.message, withKey: !!config.sgdbKey };
         if (/Schlüssel/.test(e.message)) { send('toast', { kind: 'error', text: e.message }); break; }
       }
       saveArt();
@@ -370,6 +371,12 @@ function fullState() {
     version: app.getVersion(),
     displays: displayList(),
     categories: CATEGORY_LABELS,
+    artStatus: (() => {
+      const own = cache.games.filter((g) => g.source !== 'steam');
+      const found = own.filter((g) => (artMap[g.id] && artMap[g.id].cover) || (config.games[g.id] || {}).cover).length;
+      const err = own.map((g) => artMap[g.id] && artMap[g.id].error).find(Boolean) || null;
+      return { total: own.length, found, busy: artBusy, error: err };
+    })(),
     canUpdate: U.exists(path.join(app.getAppPath(), '.git')),
     isShell: IS_SHELL_LAUNCH,
     platform: process.platform,
@@ -401,7 +408,7 @@ async function loadIcons(programs) {
   // Store-Apps: Logo direkt aus dem App-Paket
   const uwp = programs.filter((p) => p.kind === 'uwp' && !cache.icons[p.id]);
   if (uwp.length) {
-    const logos = (await helper.safe('uwpLogos', { appIds: uwp.map((p) => p.appId) }, {}, 60000)) || {};
+    const logos = (await worker.safe('uwpLogos', { appIds: uwp.map((p) => p.appId) }, {}, 60000)) || {};
     for (const p of uwp) if (logos[p.appId]) cache.icons[p.id] = pathToFileURL(logos[p.appId]).href;
     pushState();
   }
@@ -409,7 +416,7 @@ async function loadIcons(programs) {
   let n = 0;
   for (const p of programs) {
     if (p.kind !== 'lnk' || cache.icons[p.id]) continue;
-    const b64 = await helper.safe('icon', { path: p.lnk }, null, 15000);
+    const b64 = await worker.safe('icon', { path: p.lnk }, null, 15000);
     if (b64) {
       // Als Datei speichern, damit der Zustand klein bleibt
       const f = path.join(ICON_DIR, p.id.replace(/[^a-z0-9_-]/gi, '_') + '.png');
@@ -428,8 +435,8 @@ async function rescan() {
   scanning = true;
   pushState();
   try {
-    const { games, sources } = await scanGames(helper);
-    const startApps = process.platform === 'win32' ? await helper.safe('startApps', {}, [], 30000) : [];
+    const { games, sources } = await scanGames(worker);
+    const startApps = process.platform === 'win32' ? await worker.safe('startApps', {}, [], 30000) : [];
     const programs = scanPrograms({
       readShortcut: (p) => shell.readShortcutLink(p),
       gameDirs: games.map((g) => g.installDir).filter(Boolean),
@@ -485,7 +492,7 @@ function setupWatchers() {
 const POLL_SEC = 20;
 async function pollRunning() {
   if (process.platform !== 'win32') return;
-  const procs = await helper.safe('procs', {}, null, 20000);
+  const procs = await worker.safe('procs', {}, null, 20000);
   if (!procs) return;
   const now = new Set();
   for (const g of cache.games) {
@@ -504,7 +511,7 @@ async function pollRunning() {
       const g = cache.games.find((x) => x.id === id);
       if (g && g.art && g.art.scene === 'castle') {
         const c = wowLastCharacter(g.installDir);
-        if (c) { g.wowCharacter = { name: c.name, realm: c.realm }; g.extLastPlayed = c.mtime; saveCache(); }
+        if (c) { g.wowCharacter = { name: c.name, realm: c.realm || '' }; g.extLastPlayed = c.mtime; saveCache(); }
       }
     }
   }
@@ -561,7 +568,7 @@ async function applyStartMode(mode) {
 
 /** Im Exklusiv-Modus startet Windows keine Autostart-Programme – das übernimmt die Bibliothek. */
 async function runStartupEntries() {
-  const entries = (await helper.safe('runEntries', {}, [])) || [];
+  const entries = (await worker.safe('runEntries', {}, [])) || [];
   for (const e of entries) {
     if (!e.cmd || e.cmd.toLowerCase().includes(process.execPath.toLowerCase())) continue;
     try { spawn(e.cmd, { shell: true, detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch {}
@@ -666,7 +673,7 @@ async function fileIcon(p) {
   if (iconCache.has(key)) return iconCache.get(key);
   let url = null;
   if (perPath && ext && process.platform === 'win32') {
-    const b64 = await helper.safe('icon', { path: p }, null, 10000);
+    const b64 = await worker.safe('icon', { path: p }, null, 10000);
     if (b64) { url = 'data:image/png;base64,' + b64; iconCache.set(key, url); return url; }
   }
   try { const img = await app.getFileIcon(p, { size: 'large' }); if (!img.isEmpty()) url = img.toDataURL(); } catch {}
@@ -924,6 +931,7 @@ app.whenReady().then(async () => {
   createWindow();
   createCorner();
   setTimeout(syncCompanions, 1500);
+  worker.start();
   helper.start().then((ok) => {
     if (!ok) return;
     applyTaskbar();
@@ -952,6 +960,7 @@ app.on('before-quit', async (e) => {
   // Taskleiste wiederherstellen, bevor die Bibliothek sich beendet
   await helper.safe('taskbar', { show: true }, null, 3000);
   helper.stop();
+  worker.stop();
   cleanedUp = true;
   app.quit();
 });

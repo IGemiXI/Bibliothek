@@ -131,8 +131,8 @@
     const area = root.querySelector('.quick-area');
     const grid = root.querySelector('.quick-grid');
     if (!area || !grid) return;
-    const W = area.clientWidth;
-    const H = area.clientHeight;
+    const W = area.clientWidth - 16;
+    const H = area.clientHeight - 16;
     const items = [...grid.children];
     const spans = items.map((el) => [+el.dataset.w || 1, +el.dataset.h || 1]);
     if (!spans.length) return;
