@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-1b1712?style=for-the-badge&logo=windows&logoColor=d6b268&labelColor=0b0a08" alt="Windows 10 | 11">
-  <img src="https://img.shields.io/badge/Version-0.7.2-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.7.2">
+  <img src="https://img.shields.io/badge/Version-0.7.5-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.7.5">
   <img src="https://img.shields.io/badge/Electron-33-1b1712?style=for-the-badge&logo=electron&logoColor=d6b268&labelColor=0b0a08" alt="Electron">
   <img src="https://img.shields.io/badge/Sprache-Deutsch-1b1712?style=for-the-badge&labelColor=0b0a08&color=6e5a32" alt="Deutsch">
 </p>
@@ -203,6 +203,14 @@ In der Bibliothek unter *Einstellungen → Start* „Mit Windows“ oder „Manu
 <br>
 
 Die Bibliothek stellt die ursprüngliche Einstellung beim nächsten Beenden wieder her. Von Hand: Rechtsklick auf die Taskleiste → *Taskleisteneinstellungen → Verhalten der Taskleiste*.
+
+</details>
+
+<details>
+<summary><b>Etwas startet oder wechselt nicht wie erwartet</b></summary>
+<br>
+
+Die Bibliothek schreibt jeden Start und jedes <kbd>Win</kbd> + <kbd>Tab</kbd> in ein Protokoll: <kbd>Win</kbd> + <kbd>R</kbd> → `%APPDATA%\Bibliothek` → `start.log`. Daran siehst du, ob die Bibliothek beim Hochfahren gestartet wurde und ob Tastendrücke ankommen.
 
 </details>
 
