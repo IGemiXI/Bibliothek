@@ -38,7 +38,13 @@ if not exist "node_modules\electron\dist\electron.exe" (
   echo  Lade Electron herunter ^(ca. 100 MB, kann etwas dauern^) ...
   set ELECTRON_SKIP_BINARY_DOWNLOAD=
   if exist "node_modules\electron\path.txt" del /q "node_modules\electron\path.txt"
+  rem Kaputten Zwischenspeicher eines abgebrochenen Downloads entfernen
+  if exist "%LOCALAPPDATA%\electron\Cache" rmdir /s /q "%LOCALAPPDATA%\electron\Cache"
   call node "node_modules\electron\install.js"
+)
+
+if not exist "node_modules\electron\dist\electron.exe" (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "tools\get-electron.ps1"
 )
 
 if not exist "node_modules\electron\dist\electron.exe" (
