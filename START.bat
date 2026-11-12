@@ -35,11 +35,18 @@ call npm install --no-audit --no-fund --loglevel=error
 rem Electron laedt sein eigentliches Programm in einem eigenen Schritt nach.
 rem Falls npm diesen Schritt uebersprungen hat, hier selbst ausfuehren.
 if not exist "node_modules\electron\dist\electron.exe" (
-  echo  Lade Electron herunter ...
+  echo  Lade Electron herunter ^(ca. 100 MB, kann etwas dauern^) ...
+  set ELECTRON_SKIP_BINARY_DOWNLOAD=
+  if exist "node_modules\electron\path.txt" del /q "node_modules\electron\path.txt"
   call node "node_modules\electron\install.js"
 )
 
 if not exist "node_modules\electron\dist\electron.exe" (
+  echo.
+  echo  ---- Diagnose ----
+  echo  Inhalt von node_modules\electron\dist:
+  dir /b "node_modules\electron\dist" 2>nul
+  echo  ------------------
   echo.
   echo  Electron konnte nicht geladen werden.
   echo  Bitte Internetverbindung pruefen und START.bat erneut starten.
