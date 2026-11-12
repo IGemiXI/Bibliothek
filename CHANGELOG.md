@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.7.2
+- Exklusiv-Modus: Bibliothek ist nach der PIN sofort da, Explorer startet dahinter – Autostart-Programme, Infobereich und Datei-Explorer funktionieren wie gewohnt; bei einem Absturz bleibt der normale Desktop
+
 ## 0.7.1
 - Schnellstart-Kacheln vom Zweitbildschirm erscheinen auch links in der Seitenleiste auf Bildschirm 1
 

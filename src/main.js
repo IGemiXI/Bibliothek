@@ -625,7 +625,25 @@ async function applyStartMode(mode) {
   }
 }
 
-/** Im Exklusiv-Modus startet Windows keine Autostart-Programme – das übernimmt die Bibliothek. */
+/**
+ * Exklusiv-Modus: Windows startet zuerst die Bibliothek (sofort sichtbar, kein Desktop).
+ * Danach startet die Bibliothek Explorer im Hintergrund – der kümmert sich wie gewohnt um
+ * Autostart-Programme, Infobereich und Datei-Explorer. Seine Taskleiste wird sofort ausgeblendet.
+ */
+async function startExplorerBehind() {
+  const running = async () => ((await worker.safe('procs', {}, [], 20000)) || []).some((p) => /\\explorer\.exe$/i.test(p));
+  if (!(await running())) {
+    try { spawn(path.join(process.env.WINDIR || 'C:\\Windows', 'explorer.exe'), [], { detached: true, stdio: 'ignore' }).unref(); } catch {}
+  }
+  // Explorer baut Desktop und Taskleiste in den ersten Sekunden auf – mehrmals nach vorne holen und ausblenden
+  for (const ms of [1500, 3000, 6000, 10000, 15000]) {
+    setTimeout(() => { applyTaskbar(); if (win && !win.isDestroyed() && !win.isMinimized()) bringToFront(); }, ms);
+  }
+  // Notfall: Kommt Explorer nicht hoch, startet die Bibliothek die Autostart-Programme selbst
+  setTimeout(async () => { if (!(await running())) runStartupEntries(); }, 25000);
+}
+
+/** Autostart-Programme selbst starten (nur als Notfall, falls Explorer nicht startet). */
 async function runStartupEntries() {
   const entries = (await worker.safe('runEntries', {}, [])) || [];
   for (const e of entries) {
@@ -1050,7 +1068,7 @@ app.whenReady().then(async () => {
     applyTaskbar();
     helper.safe('winkey', { on: !!config.winKey });
     syncHwnds();
-    if (IS_SHELL_LAUNCH) runStartupEntries();
+    if (IS_SHELL_LAUNCH) startExplorerBehind();
     pollRunning();
   });
   try { globalShortcut.register(config.shortcut, bringToFront); } catch {}

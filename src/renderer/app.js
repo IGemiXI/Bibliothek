@@ -499,7 +499,7 @@ function renderSettings() {
             <button data-act="start-mode" data-m="autostart" aria-pressed="${c.startMode === 'autostart'}">Mit Windows</button>
             <button data-act="start-mode" data-m="shell" aria-pressed="${c.startMode === 'shell'}">Exklusiv</button>
           </div>
-          <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">${c.startMode === 'shell' ? 'Die Bibliothek ersetzt den Windows-Desktop. Nach der PIN erscheint direkt die Bibliothek.' : c.startMode === 'autostart' ? 'Die Bibliothek startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen.' : 'Die Bibliothek startet nur, wenn du sie öffnest.'}</div>
+          <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">${c.startMode === 'shell' ? 'Nach der PIN erscheint sofort die Bibliothek – Windows startet im Hintergrund trotzdem ganz normal.' : c.startMode === 'autostart' ? 'Die Bibliothek startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen.' : 'Die Bibliothek startet nur, wenn du sie öffnest.'}</div>
           ${tg('winKey', c.winKey, 'Windows-Taste', 'Win: Bibliothek ↔ Spiel · Win + Tab: Zweitbildschirm')}
           ${tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft')}
           ${multiMon() ? tg('companion', c.companion, 'Zweitbildschirme', 'Eigene Seite mit Schnellstart statt Windows-Hintergrund') : ''}
@@ -915,11 +915,10 @@ const ACTIONS = {
   'start-mode': async (d) => {
     if (d.m === S.state.config.startMode) return;
     if (d.m === 'shell') {
-      const ok = await confirmBox('Exklusiv-Modus aktivieren?', `<p>Nach der PIN startet Windows dann direkt die Bibliothek statt des normalen Desktops.</p>
-        <ul><li>Programme, die sonst mit Windows starten (z. B. Discord, Battle.net), startet die Bibliothek für dich.</li>
-        <li>Symbole im Infobereich neben der Uhr gibt es in diesem Modus nicht.</li>
-        <li>Notfall: <b>Strg + Alt + Entf</b> → Task-Manager → „Neuen Task ausführen“ → <b>explorer</b>.</li>
-        <li>Zurück zum normalen Desktop: hier wieder „Mit Windows“ oder „Manuell“ wählen und neu anmelden.</li></ul>
+      const ok = await confirmBox('Exklusiv-Modus aktivieren?', `<p>Nach der PIN startet Windows zuerst die Bibliothek – du siehst den Windows-Desktop gar nicht.</p>
+        <ul><li>Im Hintergrund startet Windows trotzdem ganz normal: Autostart-Programme (Discord, Battle.net …), Symbole neben der Uhr und der Datei-Explorer.</li>
+        <li>Stürzt die Bibliothek einmal ab, landest du auf dem normalen Desktop.</li>
+        <li>Zurück: hier wieder „Mit Windows“ oder „Manuell“ wählen und neu anmelden.</li></ul>
         <p>Wird ab der nächsten Anmeldung aktiv.</p>`, 'Aktivieren');
       if (!ok) return;
     }

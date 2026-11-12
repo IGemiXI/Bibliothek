@@ -133,7 +133,7 @@ Windows-Kombinationen wie <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> oder 
 |---|---|
 | **Manuell** | Start nur über `START.bat` |
 | **Mit Windows** | startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen |
-| **Exklusiv** | nach der PIN kommt direkt die Bibliothek, kein Windows-Desktop |
+| **Exklusiv** | nach der PIN kommt sofort die Bibliothek, kein Windows-Desktop – Autostart-Programme, Infobereich und Explorer starten trotzdem im Hintergrund |
 
 ### Cover für alle Spiele
 
