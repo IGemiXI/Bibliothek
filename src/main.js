@@ -163,15 +163,44 @@ async function launchOnDisplay(displayId, launch, matchPath) {
   }
 }
 
+/* Fensterliste mit Bildschirmnummer (1, 2, 3 …) */
+async function windowsWithMon() {
+  const list = (await helper.safe('windows', { selfPid: process.pid }, [])) || [];
+  const displays = displayList();
+  return list.map((w) => {
+    let mon = null;
+    try {
+      const pt = screen.screenToDipPoint({ x: Math.round((w.l + w.r) / 2), y: Math.round((w.t + w.b) / 2) });
+      const d = screen.getDisplayNearestPoint(pt);
+      const e = displays.find((x) => x.id === d.id);
+      mon = e ? e.nr : null;
+    } catch {}
+    return { h: w.h, title: w.title, path: w.path, mon };
+  });
+}
+
 async function openUrl(url, displayId) {
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  let run = () => shell.openExternal(url);
   const b = process.platform === 'win32' ? await helper.safe('defaultBrowser', {}, null) : null;
   const exe = b && b.command ? ((b.command.match(/^"([^"]+)"/) || b.command.match(/^(\S+\.exe)/i) || [])[1]) : null;
-  if (exe && U.exists(exe)) {
-    if (/chrome|msedge|brave|opera|vivaldi|chromium/i.test(exe)) run = () => spawnDetached(exe, ['--new-window', url]);
-    else if (/firefox|librewolf|waterfox/i.test(exe)) run = () => spawnDetached(exe, ['-new-window', url]);
+  const chromium = exe && /chrome|msedge|brave|opera|vivaldi|chromium/i.test(exe);
+  const firefox = exe && /firefox|librewolf|waterfox/i.test(exe);
+  if (!exe || !U.exists(exe) || (!chromium && !firefox)) return shell.openExternal(url);
+
+  // Läuft der Browser schon? Dann nur einen neuen Tab öffnen –
+  // bevorzugt im Browserfenster auf diesem Bildschirm, sonst im zuletzt benutzten.
+  const wins = await windowsWithMon();
+  const own = wins.filter((w) => w.path && U.normPath(w.path) === U.normPath(exe));
+  if (own.length) {
+    const nr = (displayList().find((d) => d.id === displayId) || {}).nr;
+    const target = own.find((w) => w.mon === nr) || own[0];
+    await helper.safe('focus', { h: target.h });
+    await new Promise((r) => setTimeout(r, 150));
+    spawnDetached(exe, firefox ? ['-new-tab', url] : [url]);
+    return;
   }
+  // Noch kein Browser offen: neues Fenster direkt auf diesem Bildschirm
+  const run = () => spawnDetached(exe, firefox ? ['-new-window', url] : ['--new-window', url]);
   if (displayId) return launchOnDisplay(displayId, run);
   return run();
 }
@@ -849,20 +878,7 @@ handle('volume', async (action, value) => {
   return helper.call('volGet');
 });
 
-handle('windows', async () => {
-  const list = (await helper.call('windows', { selfPid: process.pid })) || [];
-  const displays = displayList();
-  return list.map((w) => {
-    let mon = null;
-    try {
-      const pt = screen.screenToDipPoint({ x: Math.round((w.l + w.r) / 2), y: Math.round((w.t + w.b) / 2) });
-      const d = screen.getDisplayNearestPoint(pt);
-      const e = displays.find((x) => x.id === d.id);
-      mon = e ? e.nr : null;
-    } catch {}
-    return { h: w.h, title: w.title, path: w.path, mon };
-  });
-});
+handle('windows', () => windowsWithMon());
 handle('focusWindow', (h) => helper.call('focus', { h }));
 handle('closeWindow', (h) => helper.call('closeWin', { h }));
 handle('tool', (key) => openTool(key));
