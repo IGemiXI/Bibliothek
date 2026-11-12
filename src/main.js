@@ -296,6 +296,7 @@ helper.on('winkey', onWinKey);
 
 function onWinTab(ev) {
   const on = !!(ev && ev.pinned);
+  logStart('Win+Tab → Zweitbildschirm ' + (on ? 'nach vorne' : 'nach hinten'));
   for (const w of companions.values()) if (!w.isDestroyed()) w.pinnedFront = on;
   if (on) send('companion-pinned');
 }

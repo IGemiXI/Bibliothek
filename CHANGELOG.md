@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.7.5
+- Fehler behoben: <kbd>Win</kbd> + <kbd>Tab</kbd> holte die Zweitbildschirm-Seite nicht nach vorne, solange ein Spiel den Fokus hatte
+
 ## 0.7.4
 - Fehler behoben: <kbd>Win</kbd> + <kbd>Tab</kbd> reagierte manchmal nicht, wenn z. B. YouTube über der Zweitbildschirm-Seite lag – jetzt zählt, ob die Seite wirklich sichtbar ist
 

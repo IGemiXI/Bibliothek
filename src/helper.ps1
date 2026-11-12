@@ -184,7 +184,12 @@ public class GxHook {
       foreach (var c in CompHwnds) {
         var h = new IntPtr(c);
         if (!IsWindow(h)) continue;
-        if (pinned) SetWindowPos(h, IntPtr.Zero, 0, 0, 0, 0, 0x0053); // HWND_TOP, NOSIZE|NOMOVE|NOACTIVATE|SHOWWINDOW
+        if (pinned) {
+          // Kurz „immer oben“ und sofort zurück: springt so sicher über alle Fenster,
+          // auch wenn gerade ein Spiel den Fokus hat – ohne dem Spiel den Fokus zu nehmen
+          SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0053); // HWND_TOPMOST
+          SetWindowPos(h, new IntPtr(-2), 0, 0, 0, 0, 0x0053); // HWND_NOTOPMOST
+        }
         else SendBack(h);
       }
     }
