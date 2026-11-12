@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld('gx', {
   power: (action) => call('power', action),
   appWindow: (action) => call('appWindow', action),
   update: () => call('update'),
+  artNext: (id) => call('artNext', id),
+  openUrl: (url, displayId) => call('openUrl', url, displayId),
+  openTile: (tile, displayId) => call('openTile', tile, displayId),
   cornerHit: () => ipcRenderer.send('corner-hit'),
   on: (channel, fn) => {
     const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey'];

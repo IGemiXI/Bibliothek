@@ -117,6 +117,28 @@ public class GxWin {
   [DllImport("user32.dll")] static extern IntPtr FindWindow(string c, string w);
   [DllImport("user32.dll")] static extern IntPtr FindWindowEx(IntPtr p, IntPtr after, string c, string w);
   [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, uint flags);
+
+  /* Fenster ganz nach hinten legen – aber über dem Windows-Hintergrundbild */
+  public static void SendToBack(long hv) {
+    var h = new IntPtr(hv);
+    IntPtr after = new IntPtr(1); // HWND_BOTTOM
+    IntPtr prog = FindWindow("Progman", null);
+    if (prog != IntPtr.Zero) {
+      IntPtr prev = GetWindow(prog, 3); // Fenster direkt über dem Desktop
+      if (prev == h) return;
+      if (prev != IntPtr.Zero) after = prev;
+    }
+    SetWindowPos(h, after, 0, 0, 0, 0, 0x0013); // NOSIZE | NOMOVE | NOACTIVATE
+  }
+
+  /* Fenster auf einen Bildschirm verschieben und maximieren */
+  public static void MoveTo(long hv, int x, int y, int w, int hh, bool max) {
+    var h = new IntPtr(hv);
+    ShowWindow(h, 9);
+    SetWindowPos(h, IntPtr.Zero, x, y, w, hh, 0x0014); // NOZORDER | NOACTIVATE
+    if (max) ShowWindow(h, 3);
+  }
 
   public static List<Info> List(uint selfPid) {
     var list = new List<Info>();
@@ -206,6 +228,14 @@ while ($true) {
         $data = $res
       }
       'focus'     { [GxWin]::Focus([long]$a.h); $data = $true }
+      'toBack'    { [GxWin]::SendToBack([long]$a.h); $data = $true }
+      'moveTo'    { [GxWin]::MoveTo([long]$a.h, [int]$a.x, [int]$a.y, [int]$a.w, [int]$a.hh, [bool]$a.max); $data = $true }
+      'defaultBrowser' {
+        $prog = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue).ProgId
+        $cmd = $null
+        if ($prog) { $cmd = (Get-ItemProperty -LiteralPath "Registry::HKEY_CLASSES_ROOT\$prog\shell\open\command" -ErrorAction SilentlyContinue).'(default)' }
+        $data = @{ progId = $prog; command = $cmd }
+      }
       'winkey'    { [GxHook]::Enabled = [bool]$a.on; $data = $true }
       'closeWin'  { [GxWin]::Close([long]$a.h); $data = $true }
       'uninstall' {

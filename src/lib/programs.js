@@ -6,6 +6,33 @@ const SKIP_DIRS = /^(startup|autostart|windows (tools|accessories|powershell|sys
 const SKIP_NAMES = /uninstall|deinstall|entfernen|readme|liesmich|\bhelp\b|hilfe|manual|handbuch|documentation|dokumentation|release notes|website|webseite|\bsupport\b|license|lizenz|what'?s new|changelog|repair|reparatur|benchmark/i;
 const SKIP_TARGET = /\.(url|chm|txt|pdf|html?|rtf|md|ini|log)$/i;
 
+/* Automatische Kategorien – Reihenfolge = Priorität */
+const CATEGORIES = [
+  ['ki', 'KI & Assistenten', /\b(claude|chatgpt|openai|copilot|gemini|perplexity|ollama|lm studio)\b/i],
+  ['gaming', 'Gaming', /steam|battle\.net|epic games|gog galaxy|\bea app\b|\borigin\b|ubisoft|uplay|curseforge|overwolf|wowup|riot client|minecraft|\bxbox\b|playnite|geforce now|parsec|moonlight|r2modman|thunderstore|warcraft|raider\.io|weakauras|battlestate|game ?launcher|\bgames?\b/i],
+  ['chat', 'Kommunikation', /discord|teamspeak|\bteams\b|skype|zoom|whatsapp|telegram|signal|slack|thunderbird|outlook|\bmail\b|element|guilded/i],
+  ['web', 'Internet', /chrome|firefox|\bedge\b|opera|brave|vivaldi|tor browser|filezilla|qbittorrent|utorrent|jdownloader|vpn|proton/i],
+  ['media', 'Medien', /spotify|\bvlc\b|\bobs\b|audacity|itunes|plex|kodi|\bmpc\b|potplayer|foobar|streamlabs|voicemeeter|handbrake|winamp|netflix|prime video|disney|youtube|tidal|deezer|amazon music|media player/i],
+  ['create', 'Kreativ', /blender|gimp|photoshop|lightroom|illustrator|premiere|after effects|davinci|krita|paint\.net|inkscape|affinity|figma|canva|clip studio|aseprite|unity|unreal|godot|substance|fusion 360|\bcura\b|prusa|bambu|orca ?slicer|capcut/i],
+  ['dev', 'Entwicklung', /visual studio|vs ?code|\bcode\b|\bgit\b|github|gitkraken|python|node\.?js|android studio|intellij|pycharm|webstorm|rider|eclipse|postman|docker|\bwsl\b|terminal|powershell|putty|winscp|sublime|notepad\+\+|cursor|arduino|platformio|mysql|dbeaver|xampp|anaconda|jupyter|virtualbox|vmware|hyper-v|proxmox/i],
+  ['office', 'Büro', /\bword\b|excel|powerpoint|onenote|\baccess\b|publisher|acrobat|adobe reader|\bpdf\b|libreoffice|openoffice|onlyoffice|notion|obsidian|evernote|to ?do|kalender|calendar|banking|elster|steuer/i],
+  ['tools', 'System & Tools', /nvidia|geforce|\bamd\b|radeon|intel|logitech|g hub|corsair|icue|razer|synapse|steelseries|\bmsi\b|asus|armoury|gigabyte|realtek|7-zip|winrar|peazip|ccleaner|rufus|etcher|crystaldisk|hwinfo|hwmonitor|cpu-z|gpu-z|afterburner|everything|powertoys|treesize|windirstat|revo|driver|treiber|backup|macrium|ventoy|teamviewer|anydesk|rustdesk|bitwarden|keepass|1password|malwarebytes|avast|\bavg\b|kaspersky|norton|bitdefender|magician|tailscale|wireguard|openvpn|update|monitor|benchmark/i],
+  ['windows', 'Windows', /^(rechner|calculator|editor|notepad|paint|snipping|ausschneide|fotos|photos|kamera|camera|uhr|clock|wetter|weather|karten|maps|microsoft store|tipps|tips|get help|hilfe|feedback|xbox game bar|filme|movies|groove|kurznotizen|sticky notes|sprachrekorder|sound recorder|cortana|news|nachrichten|solitaire|clipchamp|power automate|remotehilfe|quick assist|remotedesktop|remote desktop|systeminformationen|registrierungs|eingabeaufforderung|command prompt|ausführen|windows|smartphone-link|phone link|dev home|family|einstellungen|settings|bildschirmlupe|magnifier|sprachausgabe|narrator|bildschirmtastatur|on-screen keyboard|zeichentabelle|character map|wordpad|xps|fax|aufgabenplanung|task scheduler|ereignisanzeige|event viewer|dienste|services|datenträger|disk|ressourcenmonitor|resource monitor|systemkonfiguration|odbc|iscsi|leistungsüberwachung|performance monitor|computerverwaltung|computer management|defragment|laufwerke|recovery|wiederherstellung|lautstärke|mixer|snip)/i],
+];
+const CATEGORY_LABELS = Object.fromEntries(CATEGORIES.map(([k, l]) => [k, l]).concat([['other', 'Sonstiges']]));
+
+function categorize(p) {
+  const hay = p.name + ' ' + (p.target ? path.basename(p.target) : '');
+  if (p.kind === 'uwp' && /^Microsoft\.(Windows|ZuneVideo|ZuneMusic|BingWeather|BingNews|GetHelp|Getstarted|MicrosoftSolitaire|People|WindowsCamera|WindowsAlarms|WindowsCalculator|WindowsMaps|WindowsSoundRecorder|Paint|ScreenSketch|Photos|Todos|PowerAutomate|MicrosoftStickyNotes|WindowsFeedbackHub|YourPhone|549981C3F5F10|Clipchamp|DevHome|OutlookForWindows|MicrosoftFamily|WindowsNotepad|WindowsTerminal|XboxGamingOverlay)/i.test(p.appId || '')) {
+    if (/terminal/i.test(p.appId)) return 'dev';
+    if (/xboxgamingoverlay/i.test(p.appId)) return 'gaming';
+    return 'windows';
+  }
+  if (p.target && /^[a-z]:\\windows\\/i.test(p.target)) return 'windows';
+  for (const [key, , re] of CATEGORIES) if (re.test(hay)) return key;
+  return 'other';
+}
+
 function startMenuRoots() {
   const roots = [];
   const pd = process.env.ProgramData || 'C:\\ProgramData';
@@ -60,7 +87,9 @@ function scanPrograms({ readShortcut, gameDirs, startApps }) {
     if (/^(windows\.|microsoft\.(aad|lockapp|ecapp|win32webviewhost|creddialoghost|xboxgamecallableui|asynctextservice|windows\.(shellexperiencehost|startmenuexperiencehost|search|cloudexperiencehost|secureassessmentbrowser)))/i.test(a.appId)) continue;
     byName.set(key, { id: 'uwp-' + U.slug(a.name), kind: 'uwp', name: a.name, appId: a.appId, target: '', args: '' });
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const list = [...byName.values()];
+  for (const p of list) p.category = categorize(p);
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
-module.exports = { scanPrograms, startMenuRoots };
+module.exports = { scanPrograms, startMenuRoots, categorize, CATEGORY_LABELS };

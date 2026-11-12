@@ -12,7 +12,8 @@ if (process.platform === 'win32') app.setAppUserModelId('Bibliothek.App');
 const U = require('./lib/util');
 const helper = require('./lib/helper');
 const { scanGames, wowLastCharacter } = require('./lib/games');
-const { scanPrograms, startMenuRoots } = require('./lib/programs');
+const { scanPrograms, startMenuRoots, categorize, CATEGORY_LABELS } = require('./lib/programs');
+const Art = require('./lib/art');
 
 const IS_SHELL_LAUNCH = process.argv.includes('--bibliothek-shell');
 
@@ -28,7 +29,9 @@ const F = {
   config: path.join(DATA, 'config.json'),
   stats: path.join(DATA, 'stats.json'),
   cache: path.join(DATA, 'cache.json'),
+  art: path.join(DATA, 'art.json'),
 };
+const ART_DIR = path.join(DATA, 'art');
 
 function defaultFolders() {
   const p = (k) => { try { return app.getPath(k); } catch { return null; } };
@@ -42,6 +45,9 @@ const DEFAULT_CONFIG = {
   ownerName: '',             // „Wie möchtest du genannt werden?“ – oben steht dann „<Name> Bibliothek“
   winKey: true,              // Windows-Taste öffnet die Bibliothek
   displayId: null,           // Bildschirm für die Bibliothek (null = Hauptbildschirm)
+  sgdbKey: '',               // SteamGridDB-Schlüssel für Cover (optional)
+  companion: true,           // eigene Seite auf den Zweitbildschirmen
+  quickTiles: null,          // Schnellstart auf den Zweitbildschirmen (wird beim ersten Start befüllt)
   startMode: 'off',          // off | autostart | shell
   hideTaskbar: true,
   hotCorner: true,
@@ -54,12 +60,22 @@ const DEFAULT_CONFIG = {
 
 let config = Object.assign({}, DEFAULT_CONFIG, U.readJSON(F.config, {}));
 if (!config.folders) config.folders = defaultFolders();
+if (!config.quickTiles) {
+  config.quickTiles = [
+    { id: 'yt', type: 'web', name: 'YouTube', url: 'https://www.youtube.com' },
+    { id: 'ytm', type: 'web', name: 'YouTube Music', url: 'https://music.youtube.com' },
+    { id: 'google', type: 'web', name: 'Google', url: 'https://www.google.com' },
+    { id: 'gemini', type: 'web', name: 'Gemini', url: 'https://gemini.google.com' },
+  ];
+}
 let stats = Object.assign({ games: {}, programs: {}, known: [], firstScanDone: false }, U.readJSON(F.stats, {}));
 let cache = Object.assign({ games: [], programs: [], icons: {}, sources: {}, scannedAt: 0 }, U.readJSON(F.cache, {}));
 
 const saveConfig = U.debounce(() => U.writeJSON(F.config, config), 300);
 const saveStats = U.debounce(() => U.writeJSON(F.stats, stats), 1000);
 const saveCache = U.debounce(() => U.writeJSON(F.cache, cache), 500);
+let artMap = U.readJSON(F.art, {});   // gameId -> { cover, hero, source, index, tried, name }
+const saveArt = U.debounce(() => U.writeJSON(F.art, artMap), 500);
 
 let running = new Set();     // IDs laufender Spiele
 let scanning = false;
@@ -68,6 +84,7 @@ let scanning = false;
 
 let win = null;
 let corner = null;
+const companions = new Map();   // displayId -> BrowserWindow (Seite auf den Zweitbildschirmen)
 let quitting = false;
 
 function targetDisplay() {
@@ -93,6 +110,68 @@ function moveToDisplay() {
   win.setBounds(bounds);
   setTimeout(() => { if (win && !win.isDestroyed()) win.setFullScreen(true); }, 100);
   placeCorner();
+  syncCompanions();
+}
+
+/* ───── Zweitbildschirme ───── */
+function hwndOf(w) {
+  try { const b = w.getNativeWindowHandle(); return b.length >= 8 ? Number(b.readBigInt64LE(0)) : b.readInt32LE(0); } catch { return 0; }
+}
+// Seite liegt wie ein Hintergrund unter allen anderen Fenstern
+function toBack(w) { if (w && !w.isDestroyed()) helper.safe('toBack', { h: hwndOf(w) }); }
+
+function syncCompanions() {
+  const main = targetDisplay().id;
+  const wanted = config.companion ? screen.getAllDisplays().filter((d) => d.id !== main) : [];
+  for (const [id, w] of companions) {
+    if (!wanted.some((d) => d.id === id)) { companions.delete(id); if (!w.isDestroyed()) w.destroy(); }
+  }
+  for (const d of wanted) {
+    let w = companions.get(d.id);
+    if (w && !w.isDestroyed()) { w.setBounds(d.bounds); continue; }
+    w = new BrowserWindow({
+      x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
+      frame: false, show: false, skipTaskbar: true, resizable: false, movable: false,
+      minimizable: false, maximizable: false, fullscreenable: false, hasShadow: false,
+      backgroundColor: '#0b0a08', title: appTitle(),
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
+    });
+    w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { companion: String(d.id) } });
+    w.once('ready-to-show', () => { w.showInactive(); w.setBounds(d.bounds); setTimeout(() => toBack(w), 200); });
+    w.on('focus', () => setTimeout(() => toBack(w), 30));
+    w.on('page-title-updated', (e) => e.preventDefault());
+    w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+    companions.set(d.id, w);
+  }
+}
+
+/* Programm/Website starten und das neue Fenster auf einen bestimmten Bildschirm schieben */
+async function launchOnDisplay(displayId, launch, matchPath) {
+  const d = screen.getAllDisplays().find((x) => x.id === displayId);
+  if (!d || process.platform !== 'win32') return launch();
+  const before = new Set(((await helper.safe('windows', { selfPid: process.pid }, [])) || []).map((w) => w.h));
+  await launch();
+  const r = screen.dipToScreenRect(null, d.bounds);
+  for (let i = 0; i < 20; i++) {
+    await new Promise((res) => setTimeout(res, 500));
+    const list = (await helper.safe('windows', { selfPid: process.pid }, [])) || [];
+    let hit = list.find((w) => !before.has(w.h));
+    if (!hit && i > 6 && matchPath) hit = list.find((w) => w.path && U.normPath(w.path) === U.normPath(matchPath));
+    if (hit) { await helper.safe('moveTo', { h: hit.h, x: r.x, y: r.y, w: r.width, hh: r.height, max: true }); return; }
+  }
+}
+
+async function openUrl(url, displayId) {
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  let run = () => shell.openExternal(url);
+  const b = process.platform === 'win32' ? await helper.safe('defaultBrowser', {}, null) : null;
+  const exe = b && b.command ? ((b.command.match(/^"([^"]+)"/) || b.command.match(/^(\S+\.exe)/i) || [])[1]) : null;
+  if (exe && U.exists(exe)) {
+    if (/chrome|msedge|brave|opera|vivaldi|chromium/i.test(exe)) run = () => spawnDetached(exe, ['--new-window', url]);
+    else if (/firefox|librewolf|waterfox/i.test(exe)) run = () => spawnDetached(exe, ['-new-window', url]);
+  }
+  if (displayId) return launchOnDisplay(displayId, run);
+  return run();
 }
 
 function createWindow() {
@@ -189,7 +268,7 @@ function applyTaskbar() {
 }
 
 function send(channel, data) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+  for (const w of [win, ...companions.values()]) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
 }
 
 function pushWindows() { send('windows'); }
@@ -208,7 +287,8 @@ function gameView(g) {
     source: g.source,
     sourceName: g.sourceName,
     installDir: g.installDir,
-    art: Object.assign({}, g.art, o.cover ? { cover: [pathToFileURL(o.cover).href].concat(g.art.cover || []) } : {}, o.hero ? { hero: [pathToFileURL(o.hero).href].concat(g.art.hero || []) } : {}),
+    art: buildArt(g, o),
+    artSource: (artMap[g.id] && artMap[g.id].cover && !o.cover) ? artMap[g.id].source : null,
     launch: o.launch || g.launch,
     launchCustom: !!o.launch,
     launchNote: g.launchNote || null,
@@ -223,11 +303,48 @@ function gameView(g) {
   };
 }
 
+function buildArt(g, o) {
+  const a = artMap[g.id] || {};
+  const url = (p) => (p && U.exists(p) ? pathToFileURL(p).href : null);
+  const cover = [url(o.cover), url(a.cover)].concat(g.art.cover || []).filter(Boolean);
+  const hero = [url(o.hero), url(a.hero)].concat(g.art.hero || []).filter(Boolean);
+  return Object.assign({}, g.art, { cover, hero });
+}
+
+/* ─────────────────────────── Cover suchen ─────────────────────────── */
+
+let artBusy = false;
+async function fetchMissingArt(force) {
+  if (artBusy) return;
+  artBusy = true;
+  try {
+    for (const g of cache.games) {
+      if (g.source === 'steam') continue;
+      const o = config.games[g.id] || {};
+      const name = o.name || g.name;
+      const a = artMap[g.id];
+      const fresh = a && a.name === name && (a.cover ? U.exists(a.cover) : Date.now() - (a.tried || 0) < 3 * 864e5);
+      if (fresh && !force) continue;
+      try {
+        const r = await Art.fetchArt({ id: g.id, name }, { dir: ART_DIR, key: config.sgdbKey, index: 0 });
+        artMap[g.id] = Object.assign({ name, tried: Date.now(), index: 0 }, r || {});
+      } catch (e) {
+        artMap[g.id] = { name, tried: Date.now(), error: e.message };
+        if (/Schlüssel/.test(e.message)) { send('toast', { kind: 'error', text: e.message }); break; }
+      }
+      saveArt();
+      pushState();
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally { artBusy = false; }
+}
+
 function programView(p) {
   const o = config.programs[p.id] || {};
   const s = stats.programs[p.id] || {};
   return {
     id: p.id, kind: p.kind, name: o.name || p.name, target: p.target, lnk: p.lnk,
+    category: o.category || p.category || categorize(p), autoCategory: p.category || categorize(p),
     icon: cache.icons[p.id] || null, hidden: !!o.hidden, favorite: !!o.favorite,
     launches: s.launches || 0, last: s.last || 0,
     isNew: !!s.isNew && Date.now() - (s.firstSeen || 0) < 7 * 864e5,
@@ -243,6 +360,7 @@ function fullState() {
     scanning,
     config: {
       ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId,
+      hasSgdbKey: !!config.sgdbKey, companion: config.companion, quickTiles: config.quickTiles || [],
       startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
       shortcut: config.shortcut, folders: config.folders, customTiles: config.customTiles,
     },
@@ -250,6 +368,7 @@ function fullState() {
     computer: os.hostname(),
     version: app.getVersion(),
     displays: displayList(),
+    categories: CATEGORY_LABELS,
     canUpdate: U.exists(path.join(app.getAppPath(), '.git')),
     isShell: IS_SHELL_LAUNCH,
     platform: process.platform,
@@ -303,6 +422,15 @@ async function rescan() {
       gameDirs: games.map((g) => g.installDir).filter(Boolean),
       startApps,
     });
+    if (!config.quickTilesSeeded) {
+      // Discord & Claude automatisch auf den Zweitbildschirm legen, falls installiert
+      for (const re of [/^discord$/i, /^claude$/i]) {
+        const p = programs.find((x) => re.test(x.name));
+        if (p && !config.quickTiles.some((t) => t.programId === p.id)) config.quickTiles.push({ id: 't-' + p.id, type: 'program', name: p.name, programId: p.id });
+      }
+      config.quickTilesSeeded = true;
+      saveConfig();
+    }
     markNew('g', games);
     markNew('p', programs);
     stats.firstScanDone = true;
@@ -311,6 +439,7 @@ async function rescan() {
     cache.sources = Object.assign(sources, { programs: programs.length });
     cache.scannedAt = Date.now();
     pushState();
+    fetchMissingArt();
     await loadIcons(programs);
     saveCache();
     saveStats();
@@ -614,8 +743,25 @@ handle('updateGame', (id, patch) => {
   config.games[id] = o;
   saveConfig();
   pushState();
+  if ('name' in patch) fetchMissingArt();
   return true;
 });
+
+handle('artNext', async (id) => {
+  const g = cache.games.find((x) => x.id === id);
+  if (!g) throw new Error('Spiel nicht gefunden');
+  const name = (config.games[id] || {}).name || g.name;
+  const prev = artMap[id] || {};
+  const index = (prev.index || 0) + 1;
+  const r = await Art.fetchArt({ id, name }, { dir: ART_DIR, key: config.sgdbKey, index });
+  if (!r) throw new Error(config.sgdbKey ? 'Kein Cover gefunden – Namen prüfen oder eigenes Bild wählen.' : 'Kein Cover gefunden. Mit einem SteamGridDB-Schlüssel (Einstellungen) findet die Bibliothek viel mehr.');
+  if (o2(id).cover) { const o = config.games[id]; delete o.cover; delete o.hero; saveConfig(); }
+  artMap[id] = Object.assign({ name, tried: Date.now(), index: r.count > 1 ? index % r.count : 0 }, r);
+  saveArt();
+  pushState();
+  return { count: r.count, source: r.source };
+});
+const o2 = (id) => config.games[id] || {};
 
 handle('updateProgram', (id, patch) => {
   const o = Object.assign({}, config.programs[id] || {}, patch);
@@ -635,11 +781,17 @@ handle('setConfig', async (patch) => {
     if (!globalShortcut.register(patch.shortcut, bringToFront)) throw new Error('Tastenkombination ist schon belegt');
   }
   if ('ownerName' in patch) patch.ownerName = String(patch.ownerName || '').trim().slice(0, 24);
+  if ('sgdbKey' in patch) {
+    patch.sgdbKey = String(patch.sgdbKey || '').trim();
+    if (patch.sgdbKey) await Art.testKey(patch.sgdbKey);
+  }
   Object.assign(config, patch);
   saveConfig();
   if ('ownerName' in patch && win) win.setTitle(appTitle());
   if ('displayId' in patch) moveToDisplay();
   if ('winKey' in patch) helper.safe('winkey', { on: !!config.winKey });
+  if ('companion' in patch) syncCompanions();
+  if ('sgdbKey' in patch) { for (const k of Object.keys(artMap)) if (!artMap[k].cover) delete artMap[k]; fetchMissingArt(); }
   if ('hideTaskbar' in patch) applyTaskbar();
   if ('hotCorner' in patch) updateCorner();
   pushState();
@@ -702,6 +854,7 @@ handle('power', async (action) => {
 });
 
 handle('appWindow', async (action) => {
+  if (action === 'front') { bringToFront(); return true; }
   if (action === 'minimize') { await helper.safe('taskbar', { show: true }); win.minimize(); }
   else if (action === 'desktop') {
     await helper.safe('taskbar', { show: true });
@@ -728,6 +881,24 @@ handle('update', () => new Promise((resolve, reject) => {
   });
 }));
 
+handle('openUrl', (url, displayId) => openUrl(url, displayId));
+handle('openTile', async (tile, displayId) => {
+  if (!tile) throw new Error('Unbekannte Kachel');
+  if (tile.type === 'web') return openUrl(tile.url, displayId);
+  if (tile.type === 'program') {
+    const p = cache.programs.find((x) => x.id === tile.programId);
+    if (!p) throw new Error('Programm nicht mehr gefunden');
+    const run = async () => {
+      if (p.kind === 'uwp') spawn('explorer.exe', ['shell:AppsFolder\\' + p.appId], { detached: true, stdio: 'ignore' }).unref();
+      else { const err = await shell.openPath(p.lnk); if (err) throw new Error(err); }
+    };
+    const s = stats.programs[p.id] || (stats.programs[p.id] = {});
+    s.launches = (s.launches || 0) + 1; s.last = Date.now(); saveStats();
+    return launchOnDisplay(displayId, run, p.target);
+  }
+  throw new Error('Unbekannte Kachel');
+});
+
 ipcMain.on('corner-hit', () => bringToFront());
 
 /* ─────────────────────────── Start ─────────────────────────── */
@@ -735,6 +906,7 @@ ipcMain.on('corner-hit', () => bringToFront());
 app.whenReady().then(async () => {
   createWindow();
   createCorner();
+  setTimeout(syncCompanions, 1500);
   helper.start().then((ok) => {
     if (!ok) return;
     applyTaskbar();

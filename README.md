@@ -39,6 +39,18 @@ Den Ordner nach dem Einrichten nicht mehr verschieben, sonst findet der Autostar
 - **Spielzeit:** Die Bibliothek erfasst sie selbst, egal wie das Spiel gestartet wurde.
 - Neue Installationen erscheinen automatisch.
 
+## Zweitbildschirme
+
+Auf jedem weiteren Monitor zeigt die Bibliothek eine eigene Seite statt des Windows-Hintergrunds: Begrüßung mit Uhr, **Schnellstart** (Websites und Programme, öffnen sich direkt auf diesem Bildschirm) und die Fenster, die dort gerade offen sind. Die Seite liegt immer unter deinen Fenstern, wie ein Hintergrund.
+
+## Cover
+
+Steam-Spiele bringen ihre Cover mit. Für alle anderen (Battle.net, Riot, Epic, GOG) sucht die Bibliothek automatisch:
+- ohne Schlüssel über den Steam-Shop (klappt bei Spielen, die es auch auf Steam gibt)
+- mit einem kostenlosen **SteamGridDB-Schlüssel** für praktisch alle Spiele, auch WoW. Den Schlüssel holst du auf https://www.steamgriddb.com/profile/preferences/api und fügst ihn unter Einstellungen → Bibliothek ein.
+
+In den Spiel-Details wechselt „Anderes Cover“ zwischen den gefundenen Bildern.
+
 ## Startmodi (Einstellungen → Start)
 
 | Modus | Verhalten |

@@ -5,6 +5,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const attr = (o) => esc(JSON.stringify(o));
 
+const IS_COMPANION = new URLSearchParams(location.search).get('companion');
 const S = {
   state: null,
   view: 'home',
@@ -294,18 +295,52 @@ function renderGames() {
 }
 
 /* ───────── Programme ───────── */
+const CAT_ORDER = ['ki', 'gaming', 'chat', 'web', 'media', 'create', 'dev', 'office', 'tools', 'other', 'windows'];
+const catLabel = (k) => (S.state.categories && S.state.categories[k]) || k;
+function progTile(p) {
+  return `<button class="app-tile" data-act="prog" data-id="${esc(p.id)}" style="${p.hidden ? 'opacity:.45' : ''}">
+    <span class="ic">${p.icon ? `<img src="${p.icon}" alt="">` : `<span class="mono">${esc(p.name.charAt(0))}</span>`}</span>
+    <span style="min-width:0"><div class="t">${esc(p.name)}</div><div class="s">${p.favorite ? 'Favorit' : p.last ? 'Zuletzt ' + fmtWhen(p.last) : esc(catLabel(p.category))}</div></span>
+    ${p.isNew ? '<span class="flag">Neu</span>' : p.favorite ? `<span class="fav" style="top:8px;right:10px">${I.star}</span>` : ''}</button>`;
+}
 function renderPrograms() {
-  const list = programs().slice().sort((a, b) => (b.favorite - a.favorite) || a.name.localeCompare(b.name, 'de'));
+  const all = programs();
+  const q = (S.progQuery || '').trim().toLowerCase();
+  const f = S.progFilter || 'all';
+  const counts = {};
+  all.forEach((p) => { counts[p.category] = (counts[p.category] || 0) + 1; });
+  const favs = all.filter((p) => p.favorite);
+  let list = all;
+  if (q) list = list.filter((p) => p.name.toLowerCase().includes(q));
+  if (f === 'fav') list = list.filter((p) => p.favorite);
+  else if (f !== 'all') list = list.filter((p) => p.category === f);
   const hiddenCount = S.state.programs.filter((p) => p.hidden).length;
+  const pill = (key, label, n) => `<button class="pill" data-act="pfilter" data-f="${key}" aria-pressed="${f === key}">${esc(label)}<span class="n">${n}</span></button>`;
+  const frequent = all.filter((p) => p.favorite || p.launches > 0).sort((a, b) => (b.favorite - a.favorite) || (b.launches - a.launches) || (b.last - a.last)).slice(0, 8);
+  let body = '';
+  if (!list.length) body = '<div class="empty"><h3>Nichts gefunden</h3>Keine Programme in dieser Auswahl.</div>';
+  else if (f === 'all' && !q) {
+    if (frequent.length) body += `<section class="prog-sec"><div class="section-head"><h2>Häufig genutzt</h2><span class="grow"></span></div><div class="app-grid">${frequent.map(progTile).join('')}</div></section>`;
+    for (const k of CAT_ORDER) {
+      const items = list.filter((p) => p.category === k).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+      if (!items.length) continue;
+      const collapsed = (k === 'windows' || k === 'other') && !(S.openCats || {})[k];
+      body += `<section class="prog-sec"><div class="section-head"><h2>${esc(catLabel(k))}</h2><span class="sub">${items.length}</span><span class="grow"></span>
+        ${collapsed || (S.openCats || {})[k] ? `<a data-act="cat-toggle" data-k="${k}">${collapsed ? 'Anzeigen' : 'Einklappen'}</a>` : ''}</div>
+        ${collapsed ? '' : `<div class="app-grid">${items.map(progTile).join('')}</div>`}</section>`;
+    }
+  } else {
+    body = `<div class="app-grid">${list.slice().sort((a, b) => (b.favorite - a.favorite) || a.name.localeCompare(b.name, 'de')).map(progTile).join('')}</div>`;
+  }
   $('#view').innerHTML = `
-    <div class="page-head"><div><h1>Programme</h1><div class="sub">Alles aus deinem Startmenü. Rechtsklick für Favorit oder Ausblenden.</div></div><span class="grow"></span>
-      ${hiddenCount ? `<button class="btn small quiet" data-act="toggle-hidden">${S.showHidden ? 'Ausgeblendete verbergen' : hiddenCount + ' ausgeblendet anzeigen'}</button>` : ''}
+    <div class="page-head"><div><h1>Programme</h1><div class="sub">Automatisch sortiert. Rechtsklick: Favorit, Kategorie ändern oder Ausblenden.</div></div><span class="grow"></span>
+      <label class="inline-search">${I.search}<input id="pq" placeholder="Programm suchen" value="${esc(S.progQuery || '')}" autocomplete="off" spellcheck="false"></label>
+      ${hiddenCount ? `<button class="btn small quiet" data-act="toggle-hidden">${S.showHidden ? 'Ausgeblendete verbergen' : hiddenCount + ' ausgeblendet'}</button>` : ''}
       <button class="btn small quiet" data-act="rescan">${S.state.scanning ? '<span class="spin"></span>' : I.refresh}Neu einlesen</button></div>
-    ${list.length ? `<div class="app-grid">${list.map((p) => `<button class="app-tile" data-act="prog" data-id="${esc(p.id)}" style="${p.hidden ? 'opacity:.45' : ''}">
-      <span class="ic">${p.icon ? `<img src="${p.icon}" alt="">` : `<span class="mono">${esc(p.name.charAt(0))}</span>`}</span>
-      <span style="min-width:0"><div class="t">${esc(p.name)}</div><div class="s">${p.favorite ? 'Favorit' : p.kind === 'uwp' ? 'Store-App' : p.last ? 'Zuletzt ' + fmtWhen(p.last) : 'Programm'}</div></span>
-      ${p.isNew ? '<span class="flag">Neu</span>' : ''}</button>`).join('')}</div>`
-      : '<div class="empty"><h3>Keine Programme gefunden</h3>Das Startmenü wird beim nächsten Einlesen erneut durchsucht.</div>'}`;
+    <div class="filters">${pill('all', 'Alle', all.length)}${favs.length ? pill('fav', 'Favoriten', favs.length) : ''}${CAT_ORDER.filter((k) => counts[k]).map((k) => pill(k, catLabel(k), counts[k])).join('')}</div>
+    ${body}`;
+  const pq = $('#pq');
+  pq.addEventListener('input', () => { S.progQuery = pq.value; const pos = pq.selectionStart; renderPrograms(); const n = $('#pq'); n.focus(); n.setSelectionRange(pos, pos); });
 }
 
 /* ───────── Ordner ───────── */
@@ -425,6 +460,11 @@ function renderSettings() {
             <div style="display:flex;align-items:center;margin-bottom:8px"><h2 class="eyebrow">Bibliothek</h2><button class="btn small quiet" style="margin-left:auto" data-act="rescan">${S.state.scanning ? '<span class="spin"></span>' : I.refresh}Neu einlesen</button></div>
             ${SOURCES.map(([k, l]) => { const n = src[k]; const on = n > 0; return `<div class="source-row"><span class="source-dot${on ? '' : ' off'}"></span>${l}<span class="n">${n === undefined ? '…' : n < 0 ? 'Fehler' : n === 0 ? 'nicht gefunden' : n + (k === 'programs' ? ' Programme' : n === 1 ? ' Spiel' : ' Spiele')}</span></div>`; }).join('')}
             <div class="muted" style="font-size:11.5px;margin-top:10px">Zuletzt eingelesen: ${S.state.scannedAt ? fmtWhen(S.state.scannedAt) : '–'}. Neue Installationen erscheinen automatisch.</div>
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font-size:14px;font-weight:600">Cover für alle Spiele</span>${c.hasSgdbKey ? '<span class="cat" style="border-color:#4a5a32;color:#cfe6b8">aktiv</span>' : ''}</div>
+              <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:10px">Für Battle.net, Riot, Epic & Co. holt die Bibliothek Cover von SteamGridDB. Dafür brauchst du einen kostenlosen Schlüssel: <a data-act="open-url" data-url="https://www.steamgriddb.com/profile/preferences/api">Schlüssel holen</a> (Anmeldung mit Steam).</div>
+              <div class="row"><input class="field" id="sgdb" type="password" placeholder="${c.hasSgdbKey ? '•••••••• gespeichert' : 'API-Schlüssel einfügen'}" autocomplete="off" style="flex:1"><button class="btn small quiet" data-act="sgdb-save">Speichern</button></div>
+            </div>
           </section>
         </div>
       </div>
@@ -447,6 +487,7 @@ function renderSettings() {
           <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">${c.startMode === 'shell' ? 'Die Bibliothek ersetzt den Windows-Desktop. Nach der PIN erscheint direkt die Bibliothek.' : c.startMode === 'autostart' ? 'Die Bibliothek startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen.' : 'Die Bibliothek startet nur, wenn du sie öffnest.'}</div>
           ${tg('winKey', c.winKey, 'Windows-Taste', 'Schaltet zwischen Bibliothek und Spiel/Fenster hin und her')}
           ${tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft')}
+          ${multiMon() ? tg('companion', c.companion, 'Zweitbildschirme', 'Eigene Seite mit Schnellstart statt Windows-Hintergrund') : ''}
           ${tg('hotCorner', c.hotCorner, 'Ecke unten links', 'Maus in die Ecke holt die Bibliothek zurück (nicht beim Spielen)')}
         </section>
         <div class="power-grid">
@@ -564,7 +605,8 @@ function openDetail(id) {
         <div><div class="eyebrow" style="margin-bottom:8px">Name</div>
           <div class="row"><input class="field" id="g-name" value="${esc(g.name)}" style="flex:1"><button class="btn small quiet" data-act="g-rename" data-id="${esc(g.id)}">Speichern</button>${g.name !== g.originalName ? `<button class="btn small quiet" data-act="g-rename-reset" data-id="${esc(g.id)}">Original</button>` : ''}</div></div>
         <div class="row">
-          <button class="btn small quiet" data-act="g-cover" data-id="${esc(g.id)}">Cover-Bild wählen</button>
+          ${g.source !== 'steam' ? `<button class="btn small quiet" data-act="art-next" data-id="${esc(g.id)}">Anderes Cover</button>` : ''}
+          <button class="btn small quiet" data-act="g-cover" data-id="${esc(g.id)}">Eigenes Bild</button>
           <button class="btn small quiet" data-act="g-hero" data-id="${esc(g.id)}">Titelbild wählen</button>
           <button class="btn small quiet" data-act="g-launch" data-id="${esc(g.id)}">Startprogramm ändern</button>
           ${g.launchCustom ? `<button class="btn small quiet" data-act="g-launch-reset" data-id="${esc(g.id)}">Start zurücksetzen</button>` : ''}
@@ -677,7 +719,7 @@ function contextMenu(e, kind, id) {
   if (!item) return;
   const html = kind === 'g'
     ? `<div class="menu"><button data-act="play" data-id="${esc(id)}">${I.play}Spielen</button><button data-act="detail" data-id="${esc(id)}">${I.dots}Details & Anpassen</button><button data-act="g-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><hr><button data-act="open-path" data-path="${esc(item.installDir)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Ordner öffnen</button><button class="danger" data-act="g-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`
-    : `<div class="menu"><button data-act="prog" data-id="${esc(id)}">${I.play}Starten</button><button data-act="p-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button>${item.lnk ? `<button data-act="show-in-folder" data-path="${esc(item.lnk)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Speicherort zeigen</button>` : ''}<hr><button class="danger" data-act="p-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`;
+    : `<div class="menu"><button data-act="prog" data-id="${esc(id)}">${I.play}Starten</button><button data-act="p-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><button data-act="p-cat" data-id="${esc(id)}">${I.apps.replace('<svg ', '<svg width="18" height="18" ')}Kategorie: ${esc(catLabel(item.category))}</button>${item.lnk ? `<button data-act="show-in-folder" data-path="${esc(item.lnk)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Speicherort zeigen</button>` : ''}<hr><button class="danger" data-act="p-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`;
   popover({ x: e.clientX, y: e.clientY }, html);
 }
 document.addEventListener('contextmenu', (e) => {
@@ -711,6 +753,23 @@ const ACTIONS = {
   close: () => closeOverlay(),
   search: () => openSearch(),
   filter: (d) => { S.gameFilter = d.f; renderView(); },
+  pfilter: (d) => { S.progFilter = d.f; renderView(); },
+  'cat-toggle': (d) => { S.openCats = Object.assign({}, S.openCats, { [d.k]: !(S.openCats || {})[d.k] }); renderView(); },
+  'p-cat': (d, el) => {
+    const p = progById(d.id);
+    popover(el.getBoundingClientRect ? { x: el.getBoundingClientRect().left, y: el.getBoundingClientRect().top } : el, `<div class="menu">${CAT_ORDER.map((k) => `<button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="${k}">${k === p.category ? I.star : '<span style="width:16px"></span>'}${esc(catLabel(k))}</button>`).join('')}${p.category !== p.autoCategory ? `<hr><button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="">Automatisch (${esc(catLabel(p.autoCategory))})</button>` : ''}</div>`);
+  },
+  'p-cat-set': (d) => { closePopover(); act(gx.updateProgram(d.id, { category: d.k || null })); },
+  'art-next': async (d) => {
+    toast('Suche anderes Cover …');
+    const r = await act(gx.artNext(d.id));
+    if (r) { toast(r.count > 1 ? `Cover gewechselt (${r.source}, ${r.count} zur Auswahl).` : `Cover geladen (${r.source}).`); reopenDetail(d.id); }
+  },
+  'sgdb-save': async () => {
+    const v = $('#sgdb').value.trim();
+    if (await act(gx.setConfig({ sgdbKey: v }), v ? 'Schlüssel gespeichert – Cover werden gesucht …' : 'Schlüssel entfernt.') !== null) {}
+  },
+  'open-url': (d) => act(gx.openUrl(d.url)),
   'toggle-hidden': () => { S.showHidden = !S.showHidden; render(); },
   rescan: () => { act(gx.rescan(), 'Bibliothek wird neu eingelesen …'); },
   'vol-pop': (_d, el) => volPopover(el),
@@ -958,17 +1017,18 @@ document.addEventListener('keydown', (e) => {
 /* ───────── Start ───────── */
 gx.on('state', (st) => {
   S.state = st;
+  if (IS_COMPANION) { if (window.renderCompanion) window.renderCompanion(); return; }
   const ovOpen = !$('#overlay').hidden;
   const isDetail = ovOpen && $('#overlay .detail');
   render();
   if (reopenId && isDetail) { const id = reopenId; reopenId = null; openDetail(id); }
 });
 gx.on('toast', (t) => toast(t.text, t.kind));
-gx.on('winkey', () => { closePopover(); refreshWindows(); });
-gx.on('inbox-changed', () => loadInbox());
-gx.on('windows', () => { refreshWindows(); refreshVolume(); });
+gx.on('winkey', () => { if (IS_COMPANION) return; closePopover(); refreshWindows(); });
+gx.on('inbox-changed', () => { if (!IS_COMPANION) loadInbox(); });
+gx.on('windows', () => { if (IS_COMPANION) return; refreshWindows(); refreshVolume(); });
 
-(async function init() {
+if (!IS_COMPANION) (async function init() {
   S.state = await gx.state();
   render();
   if (!ownerName()) { S.welcome = true; openWelcome(); }
