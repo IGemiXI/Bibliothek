@@ -73,6 +73,31 @@ public class GxHook {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
   [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr mod, WinEventProc fn, uint pid, uint tid, uint flags);
+  [StructLayout(LayoutKind.Sequential)] struct RC { public int L; public int T; public int R; public int B; }
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RC r);
+  [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
+  [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
+
+  /* Liegt ein echtes Fenster sichtbar über diesem Fenster? (Overlays von NVIDIA, Discord, Steam … zählen nicht) */
+  static bool IsCovered(IntPtr h) {
+    RC me;
+    if (!GetWindowRect(h, out me)) return true;
+    long area = (long)(me.R - me.L) * (me.B - me.T);
+    if (area <= 0) return true;
+    for (IntPtr p = GetWindow(h, 3); p != IntPtr.Zero; p = GetWindow(p, 3)) { // GW_HWNDPREV = Fenster darüber
+      if (!IsWindowVisible(p) || IsIconic(p) || IsOurs(p.ToInt64()) || IsShellWindow(p)) continue;
+      int ex = GetWindowLong(p, -20);
+      if ((ex & 0x20) != 0 || (ex & 0x80) != 0 || (ex & 0x08000000) != 0) continue; // TRANSPARENT | TOOLWINDOW | NOACTIVATE
+      int cloaked = 0; DwmGetWindowAttribute(p, 14, out cloaked, 4);
+      if (cloaked != 0) continue;
+      RC o;
+      if (!GetWindowRect(p, out o)) continue;
+      long w = Math.Min(me.R, o.R) - Math.Max(me.L, o.L);
+      long hh = Math.Min(me.B, o.B) - Math.Max(me.T, o.T);
+      if (w > 0 && hh > 0 && w * hh > area / 5) return true; // deckt mehr als 20 % ab
+    }
+    return false;
+  }
 
   static LLProc proc;
   static WinEventProc fgProc;
@@ -152,7 +177,10 @@ public class GxHook {
   /* Windows + Tab: Zweitbildschirm-Seiten nach vorne / wieder nach hinten (ohne Fokus zu ändern) */
   static void OnWinTab(long fg) {
     if (CompHwnds.Length > 0) {
-      pinned = !pinned;
+      // Nach dem tatsächlichen Zustand richten: verdeckt -> nach vorne, frei sichtbar -> nach hinten
+      bool anyCovered = false;
+      foreach (var c in CompHwnds) { var ch = new IntPtr(c); if (IsWindow(ch) && IsCovered(ch)) anyCovered = true; }
+      pinned = !pinned || anyCovered;
       foreach (var c in CompHwnds) {
         var h = new IntPtr(c);
         if (!IsWindow(h)) continue;

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.7.4
+- Fehler behoben: <kbd>Win</kbd> + <kbd>Tab</kbd> reagierte manchmal nicht, wenn z. B. YouTube über der Zweitbildschirm-Seite lag – jetzt zählt, ob die Seite wirklich sichtbar ist
+
 ## 0.7.3
 - Fehler behoben: Bibliothek startete nach Neustart nicht, wenn Windows die Exklusiv-Einstellung ignoriert – jetzt zusätzlich im Autostart abgesichert
 - Autostart-Eintrag wird bei jedem Start geprüft und repariert
