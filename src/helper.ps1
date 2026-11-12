@@ -5,7 +5,8 @@ $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
 try { [Console]::InputEncoding  = New-Object System.Text.UTF8Encoding $false } catch {}
 
-Add-Type -Language CSharp -TypeDefinition @'
+Add-Type -AssemblyName System.Drawing
+Add-Type -Language CSharp -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;
 using System.Text;
 using System.Collections.Generic;
@@ -95,6 +96,69 @@ public class GxHook {
       }
     }
     return CallNextHookEx(hook, n, w, l);
+  }
+}
+
+// Große, scharfe Icons (bis 256 px) über die Windows-Bildlisten
+[ComImport, Guid("46EB5926-582E-4017-9FDF-E8998DAA0950"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IImageList {
+  [PreserveSig] int Add(IntPtr a, IntPtr b, ref int c);
+  [PreserveSig] int ReplaceIcon(int i, IntPtr h, ref int c);
+  [PreserveSig] int SetOverlayImage(int a, int b);
+  [PreserveSig] int Replace(int i, IntPtr a, IntPtr b);
+  [PreserveSig] int AddMasked(IntPtr a, int b, ref int c);
+  [PreserveSig] int Draw(IntPtr p);
+  [PreserveSig] int Remove(int i);
+  [PreserveSig] int GetIcon(int i, int flags, ref IntPtr icon);
+}
+public class GxIcon {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct SHFILEINFO { public IntPtr hIcon; public int iIcon; public uint attr; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string name; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string type; }
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SHGetFileInfo(string p, uint a, ref SHFILEINFO s, uint size, uint flags);
+  [DllImport("shell32.dll")] static extern int SHGetImageList(int list, ref Guid riid, out IImageList ppv);
+  [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr h);
+
+  static System.Drawing.Bitmap Get(string path, int list) {
+    var sfi = new SHFILEINFO();
+    SHGetFileInfo(path, 0, ref sfi, (uint)Marshal.SizeOf(sfi), 0x4000); // SYSICONINDEX
+    IImageList il;
+    var g = new Guid("46EB5926-582E-4017-9FDF-E8998DAA0950");
+    if (SHGetImageList(list, ref g, out il) != 0) return null;
+    IntPtr h = IntPtr.Zero;
+    il.GetIcon(sfi.iIcon, 0x1 | 0x20, ref h); // TRANSPARENT | ILD_IMAGE
+    if (h == IntPtr.Zero) return null;
+    var bmp = System.Drawing.Icon.FromHandle(h).ToBitmap();
+    DestroyIcon(h);
+    return bmp;
+  }
+  static System.Drawing.Rectangle Bounds(System.Drawing.Bitmap b) {
+    int minX = b.Width, minY = b.Height, maxX = -1, maxY = -1;
+    for (int y = 0; y < b.Height; y++) for (int x = 0; x < b.Width; x++) {
+      if (b.GetPixel(x, y).A > 16) { if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
+    }
+    if (maxX < 0) return System.Drawing.Rectangle.Empty;
+    return new System.Drawing.Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+  }
+  /* Liefert ein PNG als Base64 – 256 px, wenn das Programm so ein großes Icon hat, sonst 48 px */
+  public static string Png(string path) {
+    System.Drawing.Bitmap bmp = Get(path, 4); // JUMBO 256
+    if (bmp != null) {
+      var r = Bounds(bmp);
+      if (r.IsEmpty || r.Width <= 64 && r.Height <= 64) { bmp.Dispose(); bmp = null; }
+      else if (r.Width < bmp.Width || r.Height < bmp.Height) {
+        int side = Math.Max(r.Width, r.Height);
+        var sq = new System.Drawing.Bitmap(side, side);
+        using (var gr = System.Drawing.Graphics.FromImage(sq)) gr.DrawImage(bmp, new System.Drawing.Rectangle((side - r.Width) / 2, (side - r.Height) / 2, r.Width, r.Height), r, System.Drawing.GraphicsUnit.Pixel);
+        bmp.Dispose(); bmp = sq;
+      }
+    }
+    if (bmp == null) bmp = Get(path, 2); // EXTRALARGE 48
+    if (bmp == null) return null;
+    using (var ms = new System.IO.MemoryStream()) {
+      bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+      bmp.Dispose();
+      return Convert.ToBase64String(ms.ToArray());
+    }
   }
 }
 
@@ -235,6 +299,34 @@ while ($true) {
         $cmd = $null
         if ($prog) { $cmd = (Get-ItemProperty -LiteralPath "Registry::HKEY_CLASSES_ROOT\$prog\shell\open\command" -ErrorAction SilentlyContinue).'(default)' }
         $data = @{ progId = $prog; command = $cmd }
+      }
+      'icon'      { $data = [GxIcon]::Png([string]$a.path) }
+      'uwpLogos'  {
+        # Logo-Dateien der Store-Apps aus ihrem Paket suchen (beste Auflösung, ohne Hintergrundplatte)
+        $res = @{}
+        $pkgs = @{}
+        foreach ($p in @(Get-AppxPackage -ErrorAction SilentlyContinue)) { $pkgs[$p.PackageFamilyName] = $p.InstallLocation }
+        foreach ($id in @($a.appIds)) {
+          try {
+            $fam = $id.Split('!')[0]
+            $loc = $pkgs[$fam]
+            if (-not $loc) { continue }
+            [xml]$m = Get-Content -LiteralPath (Join-Path $loc 'AppxManifest.xml') -Raw
+            $app = @($m.Package.Applications.Application)[0]
+            $ve = $app.VisualElements
+            $logo = $ve.Square44x44Logo
+            if (-not $logo) { $logo = $ve.Square150x150Logo }
+            if (-not $logo) { continue }
+            $full = Join-Path $loc $logo
+            $dir = Split-Path $full -Parent
+            $base = [IO.Path]::GetFileNameWithoutExtension($full)
+            $cands = @(Get-ChildItem -LiteralPath $dir -Filter ($base + '*.png') -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch 'contrast' })
+            if (-not $cands.Count) { continue }
+            $best = $cands | Sort-Object @{ e = { if ($_.Name -match 'targetsize-256' -and $_.Name -match 'unplated') { 0 } elseif ($_.Name -match 'targetsize-256') { 1 } elseif ($_.Name -match 'unplated') { 2 } else { 3 } } }, @{ e = { $_.Length }; Descending = $true } | Select-Object -First 1
+            $res[$id] = $best.FullName
+          } catch {}
+        }
+        $data = $res
       }
       'winkey'    { [GxHook]::Enabled = [bool]$a.on; $data = $true }
       'closeWin'  { [GxWin]::Close([long]$a.h); $data = $true }

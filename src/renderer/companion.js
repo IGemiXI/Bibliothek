@@ -1,5 +1,5 @@
 'use strict';
-/* Seite für die Zweitbildschirme: Schnellstart, Fenster auf diesem Bildschirm, Uhr. */
+/* Seite für die Zweitbildschirme: Begrüßung, Schnellstart, Fenster auf diesem Bildschirm. */
 (function () {
   if (!IS_COMPANION) return;
   const displayId = Number(IS_COMPANION);
@@ -9,54 +9,87 @@
   root.id = 'comp';
   document.body.prepend(root);
   let wins = [];
+  const SIZES = { s: [1, 1, 'Normal'], w: [2, 1, 'Breit'], l: [2, 2, 'Groß'] };
+  const GAP = 18;
 
   const myNr = () => { const d = ((S.state && S.state.displays) || []).find((x) => x.id === displayId); return d ? d.nr : 2; };
   const tiles = () => (S.state.config.quickTiles || []);
+  const layout = () => Object.assign({ hello: true, side: true }, S.state.config.compLayout || {});
 
   function hostOf(url) { try { return new URL(/^https?:/i.test(url) ? url : 'https://' + url).hostname; } catch { return ''; } }
   function tileIcon(t) {
+    const mono = `<span class="mono qm">${esc((t.name || '?').charAt(0))}</span>`;
     if (t.type === 'web') {
-      const u = `https://www.google.com/s2/favicons?domain=${esc(hostOf(t.url))}&sz=128`;
-      return `<span class="mono" style="width:48px;height:48px;font-size:20px;position:absolute">${esc((t.name || '?').charAt(0))}</span><img src="${u}" data-srcs="${attr([u])}" alt="" style="position:relative">`;
+      const u = `https://www.google.com/s2/favicons?domain=${esc(hostOf(t.url))}&sz=256`;
+      return mono + `<img src="${u}" data-srcs="${attr([u])}" alt="">`;
     }
     const p = progById(t.programId);
-    return p && p.icon ? `<img src="${p.icon}" alt="">` : `<span class="mono" style="width:48px;height:48px;font-size:20px">${esc((t.name || '?').charAt(0))}</span>`;
+    return p && p.icon ? mono + `<img src="${esc(p.icon)}" data-srcs="${attr([p.icon])}" alt="">` : mono;
+  }
+  function greeting(d) {
+    const h = d.getHours();
+    return h < 5 ? 'Gute Nacht' : h < 11 ? 'Guten Morgen' : h < 14 ? 'Mahlzeit' : h < 18 ? 'Guten Tag' : 'Guten Abend';
+  }
+
+  function tileHtml(t, i) {
+    const [w, h] = SIZES[t.size || 's'];
+    const sub = t.type === 'web' ? esc(hostOf(t.url).replace(/^www\./, '')) : 'Programm';
+    return `<button class="quick${S.compEdit ? ' editing' : ''}" style="grid-column:span ${w};grid-row:span ${h}" data-act="${S.compEdit ? 'noop' : 'q-open'}" data-i="${i}" data-w="${w}" data-h="${h}" title="${esc(t.type === 'web' ? t.url : t.name)}">
+      <span class="qi">${tileIcon(t)}</span><span class="qn">${esc(t.name)}</span><span class="qs">${sub}</span>
+      ${S.compEdit ? `<span class="qedit">
+        <span class="qb" data-act="q-move" data-i="${i}" data-d="-1" title="Nach vorne">‹</span>
+        <span class="qb wide" data-act="q-size" data-i="${i}" title="Größe ändern">${SIZES[t.size || 's'][2]}</span>
+        <span class="qb" data-act="q-move" data-i="${i}" data-d="1" title="Nach hinten">›</span>
+        <span class="qb del" data-act="q-remove" data-i="${i}" title="Entfernen">${I.x}</span>
+      </span>` : ''}
+    </button>`;
+  }
+
+  function clockHtml(now, cls) {
+    return `<div class="comp-clock${cls ? ' ' + cls : ''}"><div class="t">${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div><div class="d">${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>`;
   }
 
   function render() {
     if (!S.state) return;
     const now = new Date();
     const nr = myNr();
+    const L = layout();
     const here = wins.filter((w) => w.mon === nr);
     const sys = S.sys;
+    const list = tiles();
+    const showAdd = S.compEdit || !list.length;
+    const pill = (key, label) => `<button class="pill" data-act="q-layout" data-k="${key}" aria-pressed="${!!L[key]}">${label}</button>`;
     root.innerHTML = `
       <div class="comp-bg">${GXArt.hero('Bildschirm' + nr, true)}</div>
       <div class="comp">
         <header class="comp-head">
           <div class="brand" style="padding:0">${I.crest}<div><div class="brand-name">${esc(ownerName() || 'Meine')}</div><div class="brand-sub">Bibliothek · Bildschirm ${nr}</div></div></div>
           <span style="flex:1"></span>
-          <button class="btn quiet" data-act="app-window" data-a="front">${I.home.replace('<svg ', '<svg width="18" height="18" ')}Bibliothek öffnen</button>
+          ${S.compEdit ? `<span class="muted" style="font-size:12.5px">Anzeigen:</span>${pill('hello', 'Begrüßung')}${pill('side', 'Seitenleiste')}
+            <button class="btn gold" data-act="q-edit">Fertig</button>`
+            : `<button class="btn quiet" data-act="q-edit">${I.gear.replace('<svg ', '<svg width="17" height="17" ')}Bearbeiten</button>
+            <button class="btn quiet" data-act="app-window" data-a="front">${I.home.replace('<svg ', '<svg width="17" height="17" ')}Bibliothek öffnen</button>`}
+          ${L.hello ? '' : clockHtml(now)}
         </header>
         <div class="comp-body">
-          <section class="comp-quick">
-            <div class="comp-hello">
+          <section class="comp-main">
+            ${L.hello ? `<div class="comp-hello">
               ${GXArt.hero('Gruss' + nr, nr % 2 === 0)}
               <div class="comp-hello-body">
                 <div class="eyebrow">${esc(greeting(now))}</div>
                 <div class="comp-hello-name">${esc(ownerName() || 'Willkommen')}</div>
                 <span style="flex:1"></span>
-                <div class="comp-clock"><div class="t">${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div><div class="d">${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+                ${clockHtml(now, 'left')}
+              </div>
+            </div>` : ''}
+            <div class="quick-area">
+              <div class="quick-grid">
+                ${list.map(tileHtml).join('')}
+                ${showAdd ? `<button class="quick add" data-act="q-add" data-w="1" data-h="1"><span class="qi" style="color:var(--gold)">${I.plus.replace('width="20" height="20"', 'width="40%" height="40%"')}</span><span class="qn">Hinzufügen</span><span class="qs">Website oder Programm</span></button>` : ''}
               </div>
             </div>
-            <div class="section-head"><h2>Schnellstart</h2><span class="sub">Öffnet direkt auf diesem Bildschirm</span><span class="grow"></span></div>
-            <div class="quick-grid">
-              ${tiles().map((t, i) => `<button class="quick" data-act="q-open" data-i="${i}" title="${esc(t.type === 'web' ? t.url : t.name)}">
-                <span class="qi">${tileIcon(t)}</span><span class="qn">${esc(t.name)}</span><span class="qs">${t.type === 'web' ? esc(hostOf(t.url).replace(/^www\./, '')) : 'Programm'}</span>
-                <span class="rm" data-act="q-remove" data-i="${i}" title="Entfernen">${I.x}</span></button>`).join('')}
-              <button class="quick add" data-act="q-add"><span class="qi" style="color:var(--gold)">${I.plus.replace('width="20" height="20"', 'width="34" height="34"')}</span><span class="qn">Hinzufügen</span><span class="qs">Website oder Programm</span></button>
-            </div>
           </section>
-          <aside class="comp-side">
+          ${L.side ? `<aside class="comp-side">
             <section class="panel widget" style="flex:1;min-height:0">
               <div class="widget-head"><span class="eyebrow">Auf diesem Bildschirm</span><span class="r">${here.length || ''}</span></div>
               <div class="comp-wins">${here.length ? here.map((w) => `<button class="comp-win" data-act="win-focus" data-h="${w.h}">${S.winIcons[w.path] ? `<img src="${S.winIcons[w.path]}" alt="">` : '<span class="ph"></span>'}<span class="t">${esc(w.title)}</span><span class="x" data-act="cw-close" data-h="${w.h}" title="Schließen">${I.x}</span></button>`).join('')
@@ -66,15 +99,58 @@
               <div class="widget-head"><span class="eyebrow">System</span></div>
               ${[['CPU', sys.cpu + ' %', sys.cpu], sys.gpu ? ['GPU', sys.gpu.util + ' % · ' + sys.gpu.temp + ' °C', sys.gpu.util] : null, ['RAM', (sys.ramUsed / 1073741824).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' / ' + Math.round(sys.ramTotal / 1073741824) + ' GB', 100 * sys.ramUsed / sys.ramTotal]].filter(Boolean).map(([l, v, p]) => `<div><div class="meter-row"><span>${l}</span><span>${v}</span></div><div class="meter"><div style="width:${Math.min(100, p)}%"></div></div></div>`).join('')}
             </section>` : ''}
-          </aside>
+          </aside>` : ''}
         </div>
       </div>`;
+    fit();
   }
   window.renderCompanion = render;
-  function greeting(d) {
-    const h = d.getHours();
-    return h < 5 ? 'Gute Nacht' : h < 11 ? 'Guten Morgen' : h < 14 ? 'Mahlzeit' : h < 18 ? 'Guten Tag' : 'Guten Abend';
+
+  /* Kachelgröße so wählen, dass der Platz gefüllt ist: wenige Kacheln = groß, viele = kleiner */
+  function pack(cols, spans) {
+    const grid = [];
+    let rows = 0;
+    const free = (r, c, w, h) => { for (let y = r; y < r + h; y++) for (let x = c; x < c + w; x++) if (grid[y] && grid[y][x]) return false; return true; };
+    for (let [w, h] of spans) {
+      w = Math.min(w, cols);
+      let placed = false;
+      for (let r = 0; !placed && r < 400; r++) {
+        for (let c = 0; c + w <= cols; c++) {
+          if (free(r, c, w, h)) {
+            for (let y = r; y < r + h; y++) { grid[y] = grid[y] || []; for (let x = c; x < c + w; x++) grid[y][x] = 1; }
+            rows = Math.max(rows, r + h);
+            placed = true;
+            break;
+          }
+        }
+      }
+    }
+    return rows;
   }
+  function fit() {
+    const area = root.querySelector('.quick-area');
+    const grid = root.querySelector('.quick-grid');
+    if (!area || !grid) return;
+    const W = area.clientWidth;
+    const H = area.clientHeight;
+    const items = [...grid.children];
+    const spans = items.map((el) => [+el.dataset.w || 1, +el.dataset.h || 1]);
+    if (!spans.length) return;
+    let best = { s: 0, cols: 1 };
+    for (let cols = 1; cols <= 14; cols++) {
+      const rows = pack(cols, spans);
+      const s = Math.min((W - GAP * (cols - 1)) / cols, (H - GAP * (rows - 1)) / rows);
+      if (s > best.s) best = { s, cols };
+    }
+    const s = Math.max(110, Math.min(380, Math.floor(best.s)));
+    grid.style.gridTemplateColumns = `repeat(${best.cols}, ${s}px)`;
+    grid.style.gridAutoRows = `${s}px`;
+    for (const el of items) {
+      const h = +el.dataset.h || 1;
+      el.style.setProperty('--t', (s * h + GAP * (h - 1)) + 'px');
+    }
+  }
+  window.addEventListener('resize', () => fit());
 
   function addDialog() {
     let mode = 'web';
@@ -88,7 +164,7 @@
             <label style="display:flex;flex-direction:column;gap:8px"><span class="muted" style="font-size:12px">Name</span><input class="field" id="qname" placeholder="z. B. YouTube" autocomplete="off"></label>
             <div class="row" style="justify-content:flex-end"><button class="btn gold" data-act="q-save-web">Hinzufügen</button></div>`
           : `<input class="field" id="qq" placeholder="Programm suchen" value="${esc(S.compQ || '')}" autocomplete="off" spellcheck="false">
-            <div style="max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px">${list.map((p) => `<button class="res" data-act="q-save-prog" data-id="${esc(p.id)}"><span class="mi-icon" style="width:30px;height:30px">${p.icon ? `<img src="${p.icon}" alt="" style="width:22px;height:22px">` : ''}</span><span class="t">${esc(p.name)}</span><span class="s">${esc(catLabel(p.category))}</span></button>`).join('')}</div>`}
+            <div style="max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px">${list.map((p) => `<button class="res" data-act="q-save-prog" data-id="${esc(p.id)}"><span class="mi-icon" style="width:30px;height:30px">${p.icon ? `<img src="${esc(p.icon)}" alt="" style="width:22px;height:22px">` : ''}</span><span class="t">${esc(p.name)}</span><span class="s">${esc(catLabel(p.category))}</span></button>`).join('')}</div>`}
         </div></div>`;
       $('#overlay').hidden = false;
       const f = $('#qurl') || $('#qq');
@@ -106,9 +182,9 @@
         const url = $('#qurl').value.trim();
         if (!url) return toast('Bitte eine Adresse eingeben.', 'error');
         const name = $('#qname').value.trim() || hostOf(url);
-        save(tiles().concat([{ id: 'w' + Date.now(), type: 'web', name, url: /^https?:/i.test(url) ? url : 'https://' + url }]));
+        save(tiles().concat([{ id: 'w' + Date.now(), type: 'web', name, url: /^https?:/i.test(url) ? url : 'https://' + url, size: 's' }]));
       },
-      'q-save-prog': (d) => { const p = progById(d.id); if (p) save(tiles().concat([{ id: 'p' + Date.now(), type: 'program', name: p.name, programId: p.id }])); },
+      'q-save-prog': (d) => { const p = progById(d.id); if (p) save(tiles().concat([{ id: 'p' + Date.now(), type: 'program', name: p.name, programId: p.id, size: 's' }])); },
     });
     draw();
   }
@@ -118,6 +194,20 @@
     'q-open': (d) => { const t = tiles()[+d.i]; if (t) act(gx.openTile(t, displayId)); },
     'q-remove': (d) => save(tiles().filter((_, i) => i !== +d.i)),
     'q-add': () => addDialog(),
+    'q-edit': () => { S.compEdit = !S.compEdit; render(); },
+    'q-move': (d) => {
+      const list = tiles().slice();
+      const i = +d.i;
+      const j = i + +d.d;
+      if (j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      save(list);
+    },
+    'q-size': (d) => {
+      const order = ['s', 'w', 'l'];
+      save(tiles().map((t, i) => (i === +d.i ? Object.assign({}, t, { size: order[(order.indexOf(t.size || 's') + 1) % order.length] }) : t)));
+    },
+    'q-layout': (d) => { const L = layout(); L[d.k] = !L[d.k]; act(gx.setConfig({ compLayout: L })); },
     'cw-close': (d) => { act(gx.closeWindow(+d.h)); setTimeout(refresh, 700); },
   });
 
@@ -133,7 +223,7 @@
       }
     }
     S.sys = await gx.system().catch(() => S.sys);
-    render();
+    if ($('#overlay').hidden) render();
   }
 
   (async function init() {

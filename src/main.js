@@ -32,6 +32,7 @@ const F = {
   art: path.join(DATA, 'art.json'),
 };
 const ART_DIR = path.join(DATA, 'art');
+const ICON_DIR = path.join(DATA, 'icons');
 
 function defaultFolders() {
   const p = (k) => { try { return app.getPath(k); } catch { return null; } };
@@ -360,7 +361,7 @@ function fullState() {
     scanning,
     config: {
       ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId,
-      hasSgdbKey: !!config.sgdbKey, companion: config.companion, quickTiles: config.quickTiles || [],
+      hasSgdbKey: !!config.sgdbKey, companion: config.companion, quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
       startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
       shortcut: config.shortcut, folders: config.folders, customTiles: config.customTiles,
     },
@@ -393,21 +394,33 @@ function markNew(kind, items) {
   stats.known = [...known];
 }
 
+const ICON_VERSION = 2;
 async function loadIcons(programs) {
   if (process.platform !== 'win32') return;
-  const todo = programs.filter((p) => !cache.icons[p.id] && p.kind === 'lnk');
-  let i = 0;
-  async function worker() {
-    while (i < todo.length) {
-      const p = todo[i++];
-      const src = p.target && /\.exe$/i.test(p.target) && U.exists(p.target) ? p.target : p.lnk;
-      try {
-        const img = await app.getFileIcon(src, { size: 'large' });
-        if (!img.isEmpty()) cache.icons[p.id] = img.toDataURL();
-      } catch {}
-    }
+  if (cache.iconsV !== ICON_VERSION) { cache.icons = {}; cache.iconsV = ICON_VERSION; }
+  // Store-Apps: Logo direkt aus dem App-Paket
+  const uwp = programs.filter((p) => p.kind === 'uwp' && !cache.icons[p.id]);
+  if (uwp.length) {
+    const logos = (await helper.safe('uwpLogos', { appIds: uwp.map((p) => p.appId) }, {}, 60000)) || {};
+    for (const p of uwp) if (logos[p.appId]) cache.icons[p.id] = pathToFileURL(logos[p.appId]).href;
+    pushState();
   }
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  // Klassische Programme: großes Icon über die Verknüpfung (die kennt auch das richtige Icon, z. B. bei Discord)
+  let n = 0;
+  for (const p of programs) {
+    if (p.kind !== 'lnk' || cache.icons[p.id]) continue;
+    const b64 = await helper.safe('icon', { path: p.lnk }, null, 15000);
+    if (b64) {
+      // Als Datei speichern, damit der Zustand klein bleibt
+      const f = path.join(ICON_DIR, p.id.replace(/[^a-z0-9_-]/gi, '_') + '.png');
+      try { fs.mkdirSync(ICON_DIR, { recursive: true }); fs.writeFileSync(f, Buffer.from(b64, 'base64')); cache.icons[p.id] = pathToFileURL(f).href + '?v=' + Date.now(); } catch {}
+    }
+    else {
+      try { const img = await app.getFileIcon(p.target && U.exists(p.target) ? p.target : p.lnk, { size: 'large' }); if (!img.isEmpty()) cache.icons[p.id] = img.toDataURL(); } catch {}
+    }
+    if (++n % 15 === 0) pushState();
+  }
+  pushState();
 }
 
 async function rescan() {
@@ -652,6 +665,10 @@ async function fileIcon(p) {
   const key = perPath ? 'p:' + p.toLowerCase() : 'e:' + ext;
   if (iconCache.has(key)) return iconCache.get(key);
   let url = null;
+  if (perPath && ext && process.platform === 'win32') {
+    const b64 = await helper.safe('icon', { path: p }, null, 10000);
+    if (b64) { url = 'data:image/png;base64,' + b64; iconCache.set(key, url); return url; }
+  }
   try { const img = await app.getFileIcon(p, { size: 'large' }); if (!img.isEmpty()) url = img.toDataURL(); } catch {}
   iconCache.set(key, url);
   return url;

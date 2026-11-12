@@ -249,7 +249,7 @@ function renderHome() {
     </div>
     <section style="margin-top:22px">
       <div class="section-head"><h2>Deine Spiele</h2><span class="sub">Zuletzt gespielt</span><span class="grow"></span><a data-act="nav" data-view="games">Alle ${games().length} anzeigen</a></div>
-      <div class="shelf">${list.slice(0, 8).map((g) => coverCard(g)).join('') || '<div class="muted">Keine Spiele gefunden.</div>'}</div>
+      <div class="shelf" style="grid-template-columns:repeat(${Math.min(8, Math.max(5, list.length))}, minmax(0, 1fr))">${list.slice(0, 8).map((g) => coverCard(g)).join('') || '<div class="muted">Keine Spiele gefunden.</div>'}</div>
     </section>
     <div class="home-bottom" style="margin-top:22px">
       <section class="panel"><div class="widget-head"><h2 class="eyebrow">Programme</h2><a class="r" data-act="nav" data-view="programs" style="margin-left:auto;font-size:12px">Alle ${programs().length}</a></div>

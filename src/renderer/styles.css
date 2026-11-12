@@ -386,3 +386,25 @@ body.companion { background: var(--bg); }
 .quick .qi { position: relative; }
 .quick-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .quick { height: 190px; }
+
+/* Zweitbildschirm 0.3: Kacheln füllen den Platz */
+.comp-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 22px; }
+.comp-hello { height: clamp(190px, 27vh, 320px); }
+.comp-clock.left { text-align: left; padding: 0; }
+.quick-area { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; }
+.quick-grid { display: grid; gap: 18px; grid-auto-flow: dense; justify-content: center; align-content: center; }
+.quick { height: auto; width: auto; --t: 190px; gap: calc(var(--t) * 0.05); border-radius: calc(var(--t) * 0.09); }
+.quick .qi { position: relative; width: calc(var(--t) * 0.42); height: calc(var(--t) * 0.42); border-radius: calc(var(--t) * 0.1); }
+.quick .qi img { position: relative; z-index: 1; width: 66%; height: 66%; object-fit: contain; border-radius: 12%; }
+.quick .qi .qm { position: absolute; inset: 17%; width: auto; height: auto; border-radius: 18%; font-size: calc(var(--t) * 0.13); }
+.quick .qn { font-size: clamp(14px, calc(var(--t) * 0.075), 28px); text-align: center; padding: 0 8px; }
+.quick .qs { font-size: clamp(11px, calc(var(--t) * 0.048), 16px); margin-top: 0; }
+.quick.editing { border-style: dashed; border-color: var(--gold-dark); }
+.quick.editing:hover { transform: none; }
+.qedit { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; }
+.qb { min-width: 30px; height: 30px; padding: 0 8px; border-radius: 8px; background: #0f0d0a; border: 1px solid var(--line-gold); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; cursor: pointer; }
+.qb.wide { font-size: 12px; }
+.qb:hover { border-color: var(--gold); color: var(--gold-light); }
+.qb.del:hover { border-color: #6a3a2e; color: var(--danger); }
+.mi-icon img, .chip img, .app-tile .ic img { object-fit: contain; }
+.quick.editing .qs { visibility: hidden; }
