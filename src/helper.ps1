@@ -245,7 +245,8 @@ public class GxWin {
     keybd_event(0x12, 0, 2, UIntPtr.Zero);
     SetForegroundWindow(h);
   }
-  public static void Close(long hv) { PostMessage(new IntPtr(hv), 0x10, IntPtr.Zero, IntPtr.Zero); }
+  // Wie ein Klick auf das X in der Titelleiste (WM_SYSCOMMAND / SC_CLOSE) – darauf reagieren mehr Apps als auf WM_CLOSE
+  public static void Close(long hv) { PostMessage(new IntPtr(hv), 0x0112, new IntPtr(0xF060), IntPtr.Zero); }
   [StructLayout(LayoutKind.Sequential)] struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint msg; public uint edge; public RECT rc; public IntPtr lParam; }
   [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint m, ref APPBARDATA d);
   static int GetBarState() {

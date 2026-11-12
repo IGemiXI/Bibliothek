@@ -432,3 +432,7 @@ body.companion { background: var(--bg); }
 .pick-grid.icon { max-height: 30vh; }
 .pick-grid > .muted { grid-column: 1 / -1; }
 .img-ok > .mono, .img-ok > .qm { display: none; }
+/* Schließen-Knopf immer sichtbar und gut treffbar */
+.comp-win .x { display: flex; width: 30px; height: 30px; flex-shrink: 0; opacity: .55; }
+.comp-win:hover .x { opacity: 1; }
+.win-chip .x { top: 8px; width: 22px; height: 22px; }

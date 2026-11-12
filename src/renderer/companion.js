@@ -216,12 +216,22 @@
       save(tiles().map((t, i) => (i === +d.i ? Object.assign({}, t, { size: order[(order.indexOf(t.size || 's') + 1) % order.length] }) : t)));
     },
     'q-layout': (d) => { const L = layout(); L[d.k] = !L[d.k]; act(gx.setConfig({ compLayout: L })); },
-    'cw-close': (d) => { act(gx.closeWindow(+d.h)); setTimeout(refresh, 700); },
+    'cw-close': (d) => {
+      act(gx.closeWindow(+d.h));
+      wins = wins.filter((w) => String(w.h) !== String(d.h)); // sofort aus der Liste nehmen
+      render();
+      setTimeout(refresh, 900);
+    },
   });
 
+  let lastKey = '';
   async function refresh() {
     const list = await gx.windows().catch(() => null);
+    let changed = false;
     if (list) {
+      const key = JSON.stringify(list.map((w) => [w.h, w.title, w.mon]));
+      changed = key !== lastKey;
+      lastKey = key;
       wins = list;
       for (const w of list) {
         if (w.path && !(w.path in S.winIcons)) {
@@ -231,7 +241,22 @@
       }
     }
     S.sys = await gx.system().catch(() => S.sys);
-    if ($('#overlay').hidden) render();
+    if (!$('#overlay').hidden) return;
+    // Nur neu zeichnen, wenn sich die Fenster geändert haben – sonst nur die Messwerte und die Uhr aktualisieren
+    if (changed) return render();
+    updateLive();
+  }
+  function updateLive() {
+    const now = new Date();
+    root.querySelectorAll('.comp-clock .t').forEach((el) => { el.textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); });
+    const sys = S.sys;
+    if (!sys) return;
+    const vals = [[sys.cpu + ' %', sys.cpu]];
+    if (sys.gpu) vals.push([sys.gpu.util + ' % · ' + sys.gpu.temp + ' °C', sys.gpu.util]);
+    vals.push([(sys.ramUsed / 1073741824).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' / ' + Math.round(sys.ramTotal / 1073741824) + ' GB', 100 * sys.ramUsed / sys.ramTotal]);
+    const rows = root.querySelectorAll('.comp-side .meter-row span:last-child');
+    const bars = root.querySelectorAll('.comp-side .meter > div');
+    vals.forEach(([t, p], i) => { if (rows[i]) rows[i].textContent = t; if (bars[i]) bars[i].style.width = Math.min(100, p) + '%'; });
   }
 
   (async function init() {

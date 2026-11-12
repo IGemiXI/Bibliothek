@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.6.3
+- Fehler behoben: Fenster auf dem Zweitbildschirm ließen sich über das X nicht schließen
+- Zweitbildschirm zeichnet nur noch neu, wenn sich Fenster ändern (Uhr & Messwerte laufen trotzdem live)
+
 ## 0.6.2
 - Fehler behoben: Taskleiste kam nach Win + Shift + S auf dem Zweitbildschirm zurück – ein Wächter blendet sie jetzt sofort wieder aus
 - Fehler behoben: Ersatzbuchstabe schien hinter durchsichtigen Logos durch
