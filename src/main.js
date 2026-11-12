@@ -267,9 +267,12 @@ function bringToFront() {
   if (!win || win.isDestroyed()) return;
   if (win.isMinimized()) win.restore();
   win.show();
-  win.setAlwaysOnTop(true);
+  win.setAlwaysOnTop(true, 'screen-saver');
   win.focus();
-  setTimeout(() => { if (win && !win.isDestroyed()) win.setAlwaysOnTop(false); }, 150);
+  // Windows erlaubt den Fokuswechsel nur dem Prozess, der gerade die Eingabe bekommen hat –
+  // das ist der Helfer mit der Windows-Taste. Er holt die Bibliothek darum zusätzlich selbst nach vorne.
+  helper.safe('focus', { h: ownHandle() });
+  setTimeout(() => { if (win && !win.isDestroyed()) { win.setAlwaysOnTop(false); win.focus(); } }, 250);
   applyTaskbar();
 }
 
