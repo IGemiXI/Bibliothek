@@ -139,6 +139,7 @@ document.addEventListener('load', (e) => {
   if (img instanceof HTMLImageElement && img.dataset.srcs) {
     const card = img.closest('.cover-card');
     if (card) card.classList.add('has-img');
+    if (img.parentElement) img.parentElement.classList.add('img-ok');
   }
 }, true);
 

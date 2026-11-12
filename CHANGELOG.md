@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.6.2
+- Fehler behoben: Taskleiste kam nach Win + Shift + S auf dem Zweitbildschirm zurück – ein Wächter blendet sie jetzt sofort wieder aus
+- Fehler behoben: Ersatzbuchstabe schien hinter durchsichtigen Logos durch
+
 ## 0.6.1
 - Icon-Auswahl mit Marken-Logos von Simple Icons (Claude, WhatsApp, YouTube & über 3.000 weitere) in Original, Weiß oder Gold – ohne Schlüssel
 - Website-Kacheln: zusätzlich das Symbol der Website

@@ -265,6 +265,21 @@ public class GxWin {
     Taskbar(show);
     return prev;
   }
+  /* Wächter: Windows (z. B. Win + Shift + S) holt die Taskleiste manchmal zurück – jede Sekunde wieder ausblenden */
+  static System.Threading.Timer guard;
+  public static void Guard(bool on) {
+    if (guard != null) { guard.Dispose(); guard = null; }
+    if (!on) return;
+    guard = new System.Threading.Timer(_ => {
+      try {
+        IntPtr t = FindWindow("Shell_TrayWnd", null);
+        bool any = t != IntPtr.Zero && IsWindowVisible(t);
+        IntPtr s = IntPtr.Zero;
+        while ((s = FindWindowEx(IntPtr.Zero, s, "Shell_SecondaryTrayWnd", null)) != IntPtr.Zero) if (IsWindowVisible(s)) any = true;
+        if (any) Taskbar(false);
+      } catch { }
+    }, null, 1000, 1000);
+  }
   public static void Taskbar(bool show) {
     int cmd = show ? 5 : 0;
     IntPtr t = FindWindow("Shell_TrayWnd", null);
@@ -310,6 +325,7 @@ while ($true) {
       'volGet'    { $data = @{ vol = [Math]::Round([GxAudio]::GetVolume() * 100); mute = [GxAudio]::GetMute() } }
       'volSet'    { [GxAudio]::SetVolume([float]($a.v / 100)); $data = $true }
       'muteSet'   { [GxAudio]::SetMute([bool]$a.m); $data = $true }
+      'taskbarGuard' { [GxWin]::Guard([bool]$a.on); $data = $true }
       'taskbar'   { $r = -1; if ($null -ne $a.restore) { $r = [int]$a.restore }; $data = [GxWin]::Taskbar([bool]$a.show, $r) }
       'procs'     { $data = @(Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }) }
       'windows'   {

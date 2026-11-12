@@ -431,3 +431,4 @@ body.companion { background: var(--bg); }
 .pick-grid.icon .pick img { object-fit: contain; }
 .pick-grid.icon { max-height: 30vh; }
 .pick-grid > .muted { grid-column: 1 / -1; }
+.img-ok > .mono, .img-ok > .qm { display: none; }

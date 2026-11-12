@@ -324,6 +324,7 @@ async function applyTaskbar() {
   if (process.platform !== 'win32') return;
   if (!config.hideTaskbar) return showTaskbar();
   const prev = await helper.safe('taskbar', { show: false, restore: -1 });
+  helper.safe('taskbarGuard', { on: true });
   // Ursprüngliche Einstellung einmal merken (nur wenn sie nicht schon „automatisch ausblenden“ war)
   if (config.taskbarPrev == null && typeof prev === 'number' && (prev & 1) === 0) { config.taskbarPrev = prev; saveConfig(); }
 }
@@ -332,6 +333,7 @@ async function applyTaskbar() {
 async function showTaskbar() {
   if (process.platform !== 'win32') return;
   const restore = config.taskbarPrev == null ? -1 : config.taskbarPrev;
+  await helper.safe('taskbarGuard', { on: false }, null, 3000);
   await helper.safe('taskbar', { show: true, restore }, null, 3000);
   if (config.taskbarPrev != null) { config.taskbarPrev = null; saveConfig(); }
 }
