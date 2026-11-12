@@ -236,6 +236,25 @@ public class GxWin {
     SetForegroundWindow(h);
   }
   public static void Close(long hv) { PostMessage(new IntPtr(hv), 0x10, IntPtr.Zero, IntPtr.Zero); }
+  [StructLayout(LayoutKind.Sequential)] struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint msg; public uint edge; public RECT rc; public IntPtr lParam; }
+  [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint m, ref APPBARDATA d);
+  static int GetBarState() {
+    var d = new APPBARDATA(); d.cbSize = Marshal.SizeOf(d); d.hWnd = FindWindow("Shell_TrayWnd", null);
+    return (int)SHAppBarMessage(4, ref d).ToUInt32(); // ABM_GETSTATE
+  }
+  static void SetBarState(int st) {
+    var d = new APPBARDATA(); d.cbSize = Marshal.SizeOf(d); d.hWnd = FindWindow("Shell_TrayWnd", null); d.lParam = new IntPtr(st);
+    SHAppBarMessage(10, ref d); // ABM_SETSTATE
+  }
+  /* Ausblenden: Taskleiste auf „automatisch ausblenden“ stellen (damit Windows den Platz freigibt) und verstecken.
+     Rückgabe: vorheriger Zustand, damit er beim Beenden wiederhergestellt werden kann. */
+  public static int Taskbar(bool show, int restore) {
+    int prev = GetBarState();
+    if (!show && (prev & 1) == 0) SetBarState(prev | 1);
+    if (show && restore >= 0 && restore != prev) SetBarState(restore);
+    Taskbar(show);
+    return prev;
+  }
   public static void Taskbar(bool show) {
     int cmd = show ? 5 : 0;
     IntPtr t = FindWindow("Shell_TrayWnd", null);
@@ -281,7 +300,7 @@ while ($true) {
       'volGet'    { $data = @{ vol = [Math]::Round([GxAudio]::GetVolume() * 100); mute = [GxAudio]::GetMute() } }
       'volSet'    { [GxAudio]::SetVolume([float]($a.v / 100)); $data = $true }
       'muteSet'   { [GxAudio]::SetMute([bool]$a.m); $data = $true }
-      'taskbar'   { [GxWin]::Taskbar([bool]$a.show); $data = $true }
+      'taskbar'   { $r = -1; if ($null -ne $a.restore) { $r = [int]$a.restore }; $data = [GxWin]::Taskbar([bool]$a.show, $r) }
       'procs'     { $data = @(Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }) }
       'windows'   {
         $res = @()

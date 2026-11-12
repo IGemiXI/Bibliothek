@@ -293,9 +293,20 @@ function onWinKey(ev) {
 }
 helper.on('winkey', onWinKey);
 
-function applyTaskbar() {
+async function applyTaskbar() {
   if (process.platform !== 'win32') return;
-  helper.safe('taskbar', { show: !config.hideTaskbar });
+  if (!config.hideTaskbar) return showTaskbar();
+  const prev = await helper.safe('taskbar', { show: false, restore: -1 });
+  // Ursprüngliche Einstellung einmal merken (nur wenn sie nicht schon „automatisch ausblenden“ war)
+  if (config.taskbarPrev == null && typeof prev === 'number' && (prev & 1) === 0) { config.taskbarPrev = prev; saveConfig(); }
+}
+
+/* Taskleiste zeigen und die ursprüngliche Einstellung wiederherstellen */
+async function showTaskbar() {
+  if (process.platform !== 'win32') return;
+  const restore = config.taskbarPrev == null ? -1 : config.taskbarPrev;
+  await helper.safe('taskbar', { show: true, restore }, null, 3000);
+  if (config.taskbarPrev != null) { config.taskbarPrev = null; saveConfig(); }
 }
 
 function send(channel, data) {
@@ -930,9 +941,9 @@ handle('power', async (action) => {
 
 handle('appWindow', async (action) => {
   if (action === 'front') { bringToFront(); return true; }
-  if (action === 'minimize') { await helper.safe('taskbar', { show: true }); win.minimize(); }
+  if (action === 'minimize') { await showTaskbar(); win.minimize(); }
   else if (action === 'desktop') {
-    await helper.safe('taskbar', { show: true });
+    await showTaskbar();
     if (IS_SHELL_LAUNCH) {
       const procs = (await helper.safe('procs', {}, [])) || [];
       if (!procs.some((p) => /\\explorer\.exe$/i.test(p))) spawn('explorer.exe', [], { detached: true, stdio: 'ignore' }).unref();
@@ -1009,7 +1020,7 @@ app.on('before-quit', async (e) => {
   globalShortcut.unregisterAll();
   try { U.writeJSON(F.stats, stats); U.writeJSON(F.cache, cache); U.writeJSON(F.config, config); } catch {}
   // Taskleiste wiederherstellen, bevor die Bibliothek sich beendet
-  await helper.safe('taskbar', { show: true }, null, 3000);
+  await showTaskbar();
   helper.stop();
   worker.stop();
   cleanedUp = true;
