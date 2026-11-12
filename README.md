@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-1b1712?style=for-the-badge&logo=windows&logoColor=d6b268&labelColor=0b0a08" alt="Windows 10 | 11">
-  <img src="https://img.shields.io/badge/Version-0.7-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.7">
+  <img src="https://img.shields.io/badge/Version-0.7.2-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.7.2">
   <img src="https://img.shields.io/badge/Electron-33-1b1712?style=for-the-badge&logo=electron&logoColor=d6b268&labelColor=0b0a08" alt="Electron">
   <img src="https://img.shields.io/badge/Sprache-Deutsch-1b1712?style=for-the-badge&labelColor=0b0a08&color=6e5a32" alt="Deutsch">
 </p>
@@ -55,6 +55,7 @@ Alles aus dem Startmenü – auch Store-Apps – in **Kategorien**: Gaming, Komm
 - **Häufig genutzt** immer oben
 - Scharfe Icons in hoher Auflösung
 - Favoriten, Ausblenden, Kategorie und **Icon ändern** per Rechtsklick
+- Icons aus über 3.000 Marken-Logos (Original, Weiß oder Gold), SteamGridDB oder eigenem Bild
 - Suche: einfach lostippen
 
 </td>
@@ -67,6 +68,8 @@ Auf jedem Zweitbildschirm eine eigene Seite statt Windows-Hintergrund: Begrüßu
 
 - Kacheln passen ihre Größe automatisch an
 - **Bearbeiten-Modus**: Größe, Reihenfolge, eigene Icons, Bereiche
+- Dieselben Kacheln auch links in der Seitenleiste von Bildschirm 1
+- <kbd>Win</kbd> + <kbd>Tab</kbd> holt die Seite nach vorne – sie bleibt, auch wenn du weiterspielst
 - Websites öffnen als neuer Tab im vorhandenen Browser
 - Programme landen direkt auf dem richtigen Monitor
 
@@ -79,7 +82,7 @@ Ton, Anzeige, Netzwerk, Bluetooth, Systemsteuerung, Task-Manager & Co. als Kache
 - Taskleiste weg, Fenster nutzen den **ganzen Bildschirm**
 - Lautstärke direkt in der Bibliothek
 - Eigene Kacheln für beliebige Programme
-- Startmodi bis hin zu **Exklusiv**: nach der PIN direkt die Bibliothek
+- Startmodi bis hin zu **Exklusiv**: nach der PIN sofort die Bibliothek – Autostart & Infobereich laufen trotzdem
 
 </td>
 </tr>
@@ -188,10 +191,10 @@ Automatisch wird jeweils das bestbewertete Bild genommen. Über **„Bilder ausw
 </details>
 
 <details>
-<summary><b>Exklusiv-Modus: schwarzer Bildschirm</b></summary>
+<summary><b>Exklusiv-Modus wieder ausschalten</b></summary>
 <br>
 
-<kbd>Strg</kbd> + <kbd>Alt</kbd> + <kbd>Entf</kbd> → Task-Manager → „Neuen Task ausführen“ → `explorer` eingeben. Danach in der Bibliothek unter *Einstellungen → Start* wieder „Mit Windows“ oder „Manuell“ wählen und neu anmelden.
+In der Bibliothek unter *Einstellungen → Start* „Mit Windows“ oder „Manuell“ wählen und neu anmelden. Stürzt die Bibliothek im Exklusiv-Modus ab, landest du auf dem normalen Windows-Desktop – einfach `START.bat` starten.
 
 </details>
 
@@ -200,6 +203,14 @@ Automatisch wird jeweils das bestbewertete Bild genommen. Über **„Bilder ausw
 <br>
 
 Die Bibliothek stellt die ursprüngliche Einstellung beim nächsten Beenden wieder her. Von Hand: Rechtsklick auf die Taskleiste → *Taskleisteneinstellungen → Verhalten der Taskleiste*.
+
+</details>
+
+<details>
+<summary><b>Updates kommen nicht an</b></summary>
+<br>
+
+Beim automatischen Start mit Windows wird nicht aktualisiert – dafür *Einstellungen → Nach Updates suchen* nutzen oder einmal `START.bat` starten. Die Versionsnummer steht ganz unten in den Einstellungen.
 
 </details>
 
