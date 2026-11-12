@@ -21,6 +21,13 @@ if not "%~1"=="--weiter" if exist ".git" (
   if not errorlevel 1 (
     echo  Suche nach Updates ...
     git pull --ff-only --quiet
+    if errorlevel 1 (
+      rem Lokale Aenderungen (z. B. Zeilenenden) blockieren das Update: Programmdateien auf den Stand von GitHub bringen.
+      rem Deine Einstellungen liegen in %%APPDATA%%\Bibliothek und sind davon nicht betroffen.
+      echo  Update wird erzwungen ...
+      git fetch --quiet origin
+      git reset --quiet --hard origin/main
+    )
     "%~f0" --weiter
   )
 )
