@@ -816,7 +816,7 @@ const ACTIONS = {
     popover(el.getBoundingClientRect ? { x: el.getBoundingClientRect().left, y: el.getBoundingClientRect().top } : el, `<div class="menu">${CAT_ORDER.map((k) => `<button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="${k}">${k === p.category ? I.star : '<span style="width:16px"></span>'}${esc(catLabel(k))}</button>`).join('')}${p.category !== p.autoCategory ? `<hr><button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="">Automatisch (${esc(catLabel(p.autoCategory))})</button>` : ''}</div>`);
   },
   'p-cat-set': (d) => { closePopover(); act(gx.updateProgram(d.id, { category: d.k || null })); },
-  'art-pick': (d) => { closeOverlay(); openArtPicker(d.id); },
+  'art-pick': (d) => { closePopover(); closeOverlay(); openArtPicker(d.id); },
   'art-next': async (d) => {
     toast('Suche anderes Cover …');
     const r = await act(gx.artNext(d.id));
