@@ -197,7 +197,9 @@ async function scanBattlenet(helper, uninstall) {
         sourceName: 'Battle.net',
         name: WOW_FLAVORS[f.name.toLowerCase()] || prettyFlavor(f.name),
         installDir: dir,
-        launch: { kind: 'exe', target: exe, args: [], cwd: dir },
+        // WoW über Battle.net öffnen – dort klickst du selbst auf „Spielen“ (Direktstart verlangt eine erneute Anmeldung)
+        launch: bnetExe ? { kind: 'exe', target: bnetExe, args: [] } : { kind: 'exe', target: exe, args: [], cwd: dir },
+        directExe: exe,
         bnetExe: bnetExe || null,
         art: { cover: [], hero: [], logo: [], scene: 'castle' },
         wowCharacter: char ? { name: char.name, realm: char.realm || '' } : null,

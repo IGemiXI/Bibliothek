@@ -266,7 +266,7 @@ function renderHome() {
 function launchHint(g) {
   if (g.launchCustom) return 'Eigener Startbefehl';
   if (g.source === 'steam') return 'Startet über Steam';
-  if (g.art && g.art.scene === 'castle') return 'Startet direkt – ohne Umweg über Battle.net';
+  if (g.art && g.art.scene === 'castle') return g.hasBnet ? 'Öffnet Battle.net – dort auf „Spielen“ klicken' : 'Startet direkt';
   if (g.source === 'battlenet') return g.launchNote || 'Startet über Battle.net im Hintergrund';
   if (g.source === 'epic') return 'Startet über Epic im Hintergrund';
   if (g.source === 'riot') return 'Startet über den Riot Client';
@@ -593,7 +593,7 @@ function openDetail(id) {
       <div class="detail-info">
         <div class="row">
           ${g.running ? '<span class="running-pill"><span class="dot"></span>Läuft gerade</span>' : `<button class="btn gold big" data-act="play" data-id="${esc(g.id)}">${I.play}Spielen</button>`}
-          ${g.hasBnet ? `<button class="btn" data-act="bnet" data-id="${esc(g.id)}">Battle.net öffnen</button>` : ''}
+          ${g.hasBnet && !(g.art && g.art.scene === 'castle') ? `<button class="btn" data-act="bnet" data-id="${esc(g.id)}">Battle.net öffnen</button>` : ''}
           <button class="btn quiet" data-act="g-fav" data-id="${esc(g.id)}">${I.star}${g.favorite ? 'Favorit entfernen' : 'Favorit'}</button>
         </div>
         <div class="kv">
