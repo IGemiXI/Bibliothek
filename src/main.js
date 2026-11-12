@@ -140,8 +140,8 @@ function syncCompanions() {
     });
     w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { companion: String(d.id) } });
     w.once('ready-to-show', () => { w.showInactive(); w.setBounds(d.bounds); setTimeout(() => toBack(w), 200); });
+    // Normal liegt die Seite wie ein Hintergrund unten – außer sie wurde mit Windows + Tab nach vorne geholt
     w.on('focus', () => { if (!w.pinnedFront) setTimeout(() => toBack(w), 30); });
-    w.on('blur', () => { if (w.pinnedFront) { w.pinnedFront = false; setTimeout(() => toBack(w), 30); } });
     w.on('page-title-updated', (e) => e.preventDefault());
     w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
     companions.set(d.id, w);
@@ -300,35 +300,23 @@ function onWinKey(ev) {
 }
 helper.on('winkey', onWinKey);
 
-/* Windows + Tab: Seite auf dem Zweitbildschirm nach vorne (bei mehreren der Reihe nach), danach zurück */
-let lastOtherComp = null;
+/* Windows + Tab: Schalter für die Seite(n) auf den Zweitbildschirmen.
+   Einmal drücken = nach vorne und dort bleiben (auch wenn du ins Spiel klickst),
+   nochmal drücken = wieder nach hinten. Der Fokus bleibt dabei, wo er ist. */
 function onWinTab(ev) {
-  const list = [...companions.entries()]
-    .map(([id, w]) => ({ w, nr: (displayList().find((d) => d.id === id) || {}).nr || 99 }))
-    .filter((x) => !x.w.isDestroyed())
-    .sort((a, b) => a.nr - b.nr)
-    .map((x) => x.w);
+  const list = [...companions.values()].filter((w) => !w.isDestroyed());
   if (!list.length) return onWinKey(ev);
-  const fg = Number(ev && ev.fg) || 0;
-  const idx = list.findIndex((w) => w.isFocused() || hwndOf(w) === fg);
-  if (idx < 0) {
-    if (fg && !ourHandles().has(fg)) lastOtherComp = fg;
-    showCompanion(list[0]);
-  } else if (idx + 1 < list.length) {
-    showCompanion(list[idx + 1]);
-  } else {
-    list[idx].pinnedFront = false;
-    toBack(list[idx]);
-    if (lastOtherComp) helper.safe('focus', { h: lastOtherComp });
+  const pinned = list.some((w) => w.pinnedFront);
+  for (const w of list) {
+    if (pinned) { w.pinnedFront = false; toBack(w); }
+    else showCompanion(w);
   }
 }
 function showCompanion(w) {
   w.pinnedFront = true;
-  w.show();
-  w.setAlwaysOnTop(true, 'screen-saver');
-  w.focus();
-  helper.safe('focus', { h: hwndOf(w) });
-  setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 250);
+  w.showInactive();
+  w.moveTop();
+  send('companion-pinned');
 }
 helper.on('wintab', onWinTab);
 

@@ -118,7 +118,7 @@ Oben auf **Code → Download ZIP** klicken, an einen festen Ort entpacken (z. B.
 | Was | Wie |
 |---|---|
 | Bibliothek ↔ Spiel / letztes Fenster | <kbd>Win</kbd> |
-| Zweitbildschirm-Seite ↔ letztes Fenster | <kbd>Win</kbd> + <kbd>Tab</kbd> |
+| Zweitbildschirm-Seite nach vorne / wieder nach hinten (bleibt stehen, auch wenn du ins Spiel klickst) | <kbd>Win</kbd> + <kbd>Tab</kbd> |
 | Suchen | einfach lostippen · <kbd>Strg</kbd> + <kbd>K</kbd> |
 | Bibliothek nach vorne holen | <kbd>Strg</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd> · Maus in die linke untere Ecke |
 | Zwischen offenen Fenstern wechseln | Leiste „Geöffnet“ oben · <kbd>Alt</kbd> + <kbd>Tab</kbd> |

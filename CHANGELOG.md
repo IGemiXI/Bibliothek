@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.5.1
+- <kbd>Win</kbd> + <kbd>Tab</kbd> ist jetzt ein Schalter: Die Zweitbildschirm-Seite bleibt vorne, bis du wieder drückst – auch wenn du ins Spiel klickst. Der Fokus bleibt im Spiel.
+
 ## 0.5 – Schneller Wechsel
 - „Zum Spiel“: läuft ein Spiel schon, springt die Bibliothek direkt hinein
 - <kbd>Win</kbd> + <kbd>Tab</kbd> holt die Seite auf dem Zweitbildschirm nach vorne und wieder zurück
