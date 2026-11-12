@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.6 – Eigene Icons
+- Icons für Programme und Schnellstart-Kacheln selbst auswählen: Icon-Sammlung von SteamGridDB oder eigenes Bild
+- Programme: Rechtsklick → „Icon ändern“ (gilt überall)
+- Zweitbildschirm: im Bearbeiten-Modus „Bild“ an jeder Kachel
+
 ## 0.5.1
 - <kbd>Win</kbd> + <kbd>Tab</kbd> ist jetzt ein Schalter: Die Zweitbildschirm-Seite bleibt vorne, bis du wieder drückst – auch wenn du ins Spiel klickst. Der Fokus bleibt im Spiel.
 

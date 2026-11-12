@@ -619,6 +619,53 @@ function openDetail(id) {
     </div></div></div>`);
 }
 
+/* Icon auswählen (Programme & Schnellstart-Kacheln) */
+function openIconPicker(target, term, title) {
+  const P = { term: term || '', games: [], sel: null, icons: null, loading: false, error: null };
+  const draw = () => {
+    $('#overlay').innerHTML = `<div class="modal picker" style="width:min(980px,92vw)"><div class="modal-head"><h2>Icon für ${esc(title)}</h2><button class="icon-btn" style="width:38px;height:38px" data-act="close" aria-label="Schließen">${I.x}</button></div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+        <div class="row"><input class="field" id="ipq" value="${esc(P.term)}" placeholder="z. B. Discord, Spotify, YouTube" style="flex:1" autocomplete="off" spellcheck="false"><button class="btn small quiet" data-act="ip-search">Suchen</button>
+          <button class="btn small quiet" data-act="ip-file">Eigenes Bild …</button><button class="btn small quiet" data-act="ip-reset">Zurücksetzen</button></div>
+        ${P.games.length ? `<div class="filters" style="margin:0">${P.games.map((x) => `<button class="pill" data-act="ip-game" data-gid="${x.id}" aria-pressed="${P.sel === x.id}">${esc(x.name)}</button>`).join('')}</div>` : ''}
+        <div class="pick-grid icon">${P.loading ? '<div class="muted" style="padding:30px"><span class="spin"></span> Lade Icons …</div>'
+          : P.error ? `<div class="muted" style="padding:30px;color:var(--danger)">${esc(P.error)}</div>`
+          : P.icons && P.icons.length ? P.icons.map((x, i) => `<button class="pick" data-act="ip-pick" data-i="${i}"><img src="${esc(x.thumb)}" loading="lazy" alt=""></button>`).join('')
+          : P.icons ? '<div class="muted" style="padding:30px">Keine Icons für diesen Treffer. Probier einen anderen oder nimm ein eigenes Bild.</div>' : ''}</div>
+        <div class="muted" style="font-size:11.5px">Icons von SteamGridDB, sortiert nach Bewertung. „Eigenes Bild“ nimmt jede PNG/JPG/ICO-Datei von deinem PC.</div>
+      </div></div>`;
+    $('#overlay').hidden = false;
+    $('#ipq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ACTIONS['ip-search'](); } });
+  };
+  const loadGame = async (gid) => {
+    P.sel = gid; P.loading = true; P.error = null; draw();
+    try { P.icons = await gx.iconImages(gid); } catch (e) { P.error = e.message; }
+    P.loading = false; draw();
+  };
+  const search = async (t) => {
+    P.term = t; P.loading = true; P.error = null; P.icons = null; P.games = []; draw();
+    try {
+      P.games = await gx.iconSearch(t);
+      if (P.games.length) return loadGame(P.games[0].id);
+      P.error = 'Nichts gefunden.';
+    } catch (e) { P.error = e.message; }
+    P.loading = false; draw();
+  };
+  const done = async (src, msg) => { if (await act(gx.iconPick(target, src), msg)) closeOverlay(); };
+  Object.assign(ACTIONS, {
+    'ip-search': () => search($('#ipq').value),
+    'ip-game': (d) => loadGame(+d.gid),
+    'ip-pick': (d) => { const x = P.icons[+d.i]; if (x) done(x.url, 'Icon übernommen.'); },
+    'ip-file': async () => {
+      const f = await act(gx.pickFile({ title: 'Bild für das Icon wählen', filters: [{ name: 'Bilder', extensions: ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'] }] }));
+      if (f) done(f, 'Eigenes Icon übernommen.');
+    },
+    'ip-reset': () => done(null, 'Icon zurückgesetzt.'),
+  });
+  draw();
+  if (P.term) search(P.term);
+}
+
 /* Bilder auswählen (SteamGridDB) */
 async function openArtPicker(id) {
   const g = gameById(id);
@@ -776,7 +823,7 @@ function contextMenu(e, kind, id) {
   if (!item) return;
   const html = kind === 'g'
     ? `<div class="menu"><button data-act="play" data-id="${esc(id)}">${I.play}Spielen</button><button data-act="detail" data-id="${esc(id)}">${I.dots}Details & Anpassen</button><button data-act="art-pick" data-id="${esc(id)}">${I.star}Bilder auswählen</button><button data-act="g-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><hr><button data-act="open-path" data-path="${esc(item.installDir)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Ordner öffnen</button><button class="danger" data-act="g-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`
-    : `<div class="menu"><button data-act="prog" data-id="${esc(id)}">${I.play}Starten</button><button data-act="p-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><button data-act="p-cat" data-id="${esc(id)}">${I.apps.replace('<svg ', '<svg width="18" height="18" ')}Kategorie: ${esc(catLabel(item.category))}</button>${item.lnk ? `<button data-act="show-in-folder" data-path="${esc(item.lnk)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Speicherort zeigen</button>` : ''}<hr><button class="danger" data-act="p-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`;
+    : `<div class="menu"><button data-act="prog" data-id="${esc(id)}">${I.play}Starten</button><button data-act="p-fav" data-id="${esc(id)}">${I.star}${item.favorite ? 'Favorit entfernen' : 'Als Favorit'}</button><button data-act="p-icon" data-id="${esc(id)}">${I.star}Icon ändern</button><button data-act="p-cat" data-id="${esc(id)}">${I.apps.replace('<svg ', '<svg width="18" height="18" ')}Kategorie: ${esc(catLabel(item.category))}</button>${item.lnk ? `<button data-act="show-in-folder" data-path="${esc(item.lnk)}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Speicherort zeigen</button>` : ''}<hr><button class="danger" data-act="p-hide" data-id="${esc(id)}">${I.x}${item.hidden ? 'Wieder anzeigen' : 'Ausblenden'}</button></div>`;
   popover({ x: e.clientX, y: e.clientY }, html);
 }
 document.addEventListener('contextmenu', (e) => {
@@ -817,6 +864,7 @@ const ACTIONS = {
     const p = progById(d.id);
     popover(el.getBoundingClientRect ? { x: el.getBoundingClientRect().left, y: el.getBoundingClientRect().top } : el, `<div class="menu">${CAT_ORDER.map((k) => `<button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="${k}">${k === p.category ? I.star : '<span style="width:16px"></span>'}${esc(catLabel(k))}</button>`).join('')}${p.category !== p.autoCategory ? `<hr><button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="">Automatisch (${esc(catLabel(p.autoCategory))})</button>` : ''}</div>`);
   },
+  'p-icon': (d) => { closePopover(); const p = progById(d.id); if (p) openIconPicker({ kind: 'program', id: p.id }, p.name, p.name); },
   'p-cat-set': (d) => { closePopover(); act(gx.updateProgram(d.id, { category: d.k || null })); },
   'art-pick': (d) => { closePopover(); closeOverlay(); openArtPicker(d.id); },
   'art-next': async (d) => {

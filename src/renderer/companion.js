@@ -19,6 +19,7 @@
   function hostOf(url) { try { return new URL(/^https?:/i.test(url) ? url : 'https://' + url).hostname; } catch { return ''; } }
   function tileIcon(t) {
     const mono = `<span class="mono qm">${esc((t.name || '?').charAt(0))}</span>`;
+    if (t.icon) return mono + `<img src="${esc(t.icon)}" data-srcs="${attr([t.icon])}" alt="">`;
     if (t.type === 'web') {
       const u = `https://www.google.com/s2/favicons?domain=${esc(hostOf(t.url))}&sz=256`;
       return mono + `<img src="${u}" data-srcs="${attr([u])}" alt="">`;
@@ -39,6 +40,7 @@
       ${S.compEdit ? `<span class="qedit">
         <span class="qb" data-act="q-move" data-i="${i}" data-d="-1" title="Nach vorne">‹</span>
         <span class="qb wide" data-act="q-size" data-i="${i}" title="Größe ändern">${SIZES[t.size || 's'][2]}</span>
+        <span class="qb wide" data-act="q-icon" data-i="${i}" title="Bild ändern">Bild</span>
         <span class="qb" data-act="q-move" data-i="${i}" data-d="1" title="Nach hinten">›</span>
         <span class="qb del" data-act="q-remove" data-i="${i}" title="Entfernen">${I.x}</span>
       </span>` : ''}
@@ -194,6 +196,12 @@
     'q-open': (d) => { const t = tiles()[+d.i]; if (t) act(gx.openTile(t, displayId)); },
     'q-remove': (d) => save(tiles().filter((_, i) => i !== +d.i)),
     'q-add': () => addDialog(),
+    'q-icon': (d) => {
+      const t = tiles()[+d.i];
+      if (!t) return;
+      const term = t.type === 'web' ? (hostOf(t.url).replace(/^(www|music)\./, '').split('.')[0]) : t.name;
+      openIconPicker({ kind: 'tile', id: t.id }, t.name === 'YouTube Music' ? 'YouTube Music' : (t.name || term), t.name);
+    },
     'q-edit': () => { S.compEdit = !S.compEdit; render(); },
     'q-move': (d) => {
       const list = tiles().slice();

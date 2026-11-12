@@ -135,6 +135,12 @@ async function testKey(key) {
   return true;
 }
 
+/** Icons (quadratisch) – auch für Apps wie Discord, Spotify, WhatsApp */
+async function sgdbIcons(gameId, key) {
+  const r = await getJSON(`${SGDB}/icons/game/${gameId}?types=static&nsfw=false&humor=false&epilepsy=false&mimes=image/png`, { Authorization: 'Bearer ' + key }).catch(() => null);
+  return ((r && r.data) || []).filter(clean).sort(rank).map((x) => ({ url: x.url, thumb: x.thumb || x.url }));
+}
+
 /** Ein gewähltes Bild speichern */
 async function saveImage(gameId, url, kind, dir) {
   const safe = gameId.replace(/[^a-z0-9_-]/gi, '_');
@@ -142,4 +148,4 @@ async function saveImage(gameId, url, kind, dir) {
   return download(url, path.join(dir, `${safe}-${kind}-${Date.now()}.${e}`));
 }
 
-module.exports = { fetchArt, testKey, sgdbSearch, sgdbBySteam, sgdbImages, smartTerm, saveImage };
+module.exports = { fetchArt, testKey, sgdbSearch, sgdbBySteam, sgdbIcons, sgdbImages, smartTerm, saveImage };

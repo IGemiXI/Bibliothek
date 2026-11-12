@@ -416,7 +416,8 @@ function programView(p) {
   return {
     id: p.id, kind: p.kind, name: o.name || p.name, target: p.target, lnk: p.lnk,
     category: o.category || p.category || categorize(p), autoCategory: p.category || categorize(p),
-    icon: cache.icons[p.id] || null, hidden: !!o.hidden, favorite: !!o.favorite,
+    icon: (o.customIcon && U.exists(o.customIcon) ? pathToFileURL(o.customIcon).href : null) || cache.icons[p.id] || null,
+    customIcon: !!o.customIcon, hidden: !!o.hidden, favorite: !!o.favorite,
     launches: s.launches || 0, last: s.last || 0,
     isNew: !!s.isNew && Date.now() - (s.firstSeen || 0) < 7 * 864e5,
   };
@@ -861,6 +862,32 @@ handle('artNext', async (id) => {
   return { count: r.count, source: r.source };
 });
 const o2 = (id) => config.games[id] || {};
+
+/* Icons selbst auswählen (Programme & Schnellstart-Kacheln) */
+handle('iconSearch', async (term) => {
+  if (!config.sgdbKey) throw new Error('Für die Icon-Suche braucht die Bibliothek einen SteamGridDB-Schlüssel (Einstellungen → Bibliothek). „Eigenes Bild“ geht auch ohne.');
+  return (await Art.sgdbSearch(String(term || '').trim(), config.sgdbKey)).slice(0, 8);
+});
+handle('iconImages', async (sgdbId) => Art.sgdbIcons(sgdbId, config.sgdbKey));
+handle('iconPick', async (target, src) => {
+  // src = Web-Adresse (SteamGridDB) oder Pfad zu einer eigenen Bilddatei; null = zurücksetzen
+  let file = null;
+  if (src) {
+    const name = `custom-${String(target.id).replace(/[^a-z0-9_-]/gi, '_')}-${Date.now()}`;
+    if (/^https?:/i.test(src)) file = await Art.saveImage(name, src, 'icon', ICON_DIR);
+    else { fs.mkdirSync(ICON_DIR, { recursive: true }); file = path.join(ICON_DIR, name + path.extname(src).toLowerCase()); fs.copyFileSync(src, file); }
+  }
+  if (target.kind === 'program') {
+    const o = Object.assign({}, config.programs[target.id] || {});
+    if (file) o.customIcon = file; else delete o.customIcon;
+    config.programs[target.id] = o;
+  } else if (target.kind === 'tile') {
+    config.quickTiles = (config.quickTiles || []).map((t) => (t.id === target.id ? Object.assign({}, t, { icon: file ? pathToFileURL(file).href : undefined }) : t));
+  }
+  saveConfig();
+  pushState();
+  return true;
+});
 
 /* Bilder selbst auswählen */
 handle('artSearch', async (id, term) => {

@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-1b1712?style=for-the-badge&logo=windows&logoColor=d6b268&labelColor=0b0a08" alt="Windows 10 | 11">
-  <img src="https://img.shields.io/badge/Version-0.5-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.5">
+  <img src="https://img.shields.io/badge/Version-0.6-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.6">
   <img src="https://img.shields.io/badge/Electron-33-1b1712?style=for-the-badge&logo=electron&logoColor=d6b268&labelColor=0b0a08" alt="Electron">
   <img src="https://img.shields.io/badge/Sprache-Deutsch-1b1712?style=for-the-badge&labelColor=0b0a08&color=6e5a32" alt="Deutsch">
 </p>
@@ -54,7 +54,7 @@ Alles aus dem Startmenü – auch Store-Apps – in **Kategorien**: Gaming, Komm
 
 - **Häufig genutzt** immer oben
 - Scharfe Icons in hoher Auflösung
-- Favoriten, Ausblenden, Kategorie ändern per Rechtsklick
+- Favoriten, Ausblenden, Kategorie und **Icon ändern** per Rechtsklick
 - Suche: einfach lostippen
 
 </td>
@@ -66,7 +66,7 @@ Alles aus dem Startmenü – auch Store-Apps – in **Kategorien**: Gaming, Komm
 Auf jedem Zweitbildschirm eine eigene Seite statt Windows-Hintergrund: Begrüßung, Uhr, **Schnellstart** für Websites und Apps und die Fenster, die dort offen sind.
 
 - Kacheln passen ihre Größe automatisch an
-- **Bearbeiten-Modus**: Größe, Reihenfolge, Bereiche
+- **Bearbeiten-Modus**: Größe, Reihenfolge, eigene Icons, Bereiche
 - Websites öffnen als neuer Tab im vorhandenen Browser
 - Programme landen direkt auf dem richtigen Monitor
 
