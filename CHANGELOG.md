@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.6.1
+- Icon-Auswahl mit Marken-Logos von Simple Icons (Claude, WhatsApp, YouTube & über 3.000 weitere) in Original, Weiß oder Gold – ohne Schlüssel
+- Website-Kacheln: zusätzlich das Symbol der Website
+
 ## 0.6 – Eigene Icons
 - Icons für Programme und Schnellstart-Kacheln selbst auswählen: Icon-Sammlung von SteamGridDB oder eigenes Bild
 - Programme: Rechtsklick → „Icon ändern“ (gilt überall)

@@ -26,11 +26,11 @@ async function getJSON(url, headers) {
   return res.json();
 }
 
-async function download(url, file) {
+async function download(url, file, minSize = 2000) {
   const res = await fetch(url, { headers: { 'User-Agent': 'Bibliothek/0.2' } });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 2000) throw new Error('Bild zu klein');
+  if (buf.length < minSize) throw new Error('Bild zu klein');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, buf);
   return file;
@@ -141,11 +141,58 @@ async function sgdbIcons(gameId, key) {
   return ((r && r.data) || []).filter(clean).sort(rank).map((x) => ({ url: x.url, thumb: x.thumb || x.url }));
 }
 
-/** Ein gewähltes Bild speichern */
+/** Ein gewähltes Bild speichern – Dateiendung nach dem echten Inhalt (SVG, PNG, ICO …) */
 async function saveImage(gameId, url, kind, dir) {
   const safe = gameId.replace(/[^a-z0-9_-]/gi, '_');
-  const e = (url.match(/\.(png|jpe?g|webp)(\?|$)/i) || [, 'jpg'])[1].toLowerCase();
-  return download(url, path.join(dir, `${safe}-${kind}-${Date.now()}.${e}`));
+  const res = await fetch(url, { headers: { 'User-Agent': 'Bibliothek/0.6' } });
+  if (!res.ok) throw new Error('Bild konnte nicht geladen werden (HTTP ' + res.status + ')');
+  const type = (res.headers.get('content-type') || '').toLowerCase();
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 100) throw new Error('Bild ist leer');
+  const e = /svg/.test(type) ? 'svg' : /png/.test(type) ? 'png' : /icon|ico/.test(type) ? 'ico' : /webp/.test(type) ? 'webp' : /gif/.test(type) ? 'gif'
+    : ((url.match(/\.(png|jpe?g|webp|svg|ico)(\?|$)/i) || [, 'jpg'])[1].toLowerCase());
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${safe}-${kind}-${Date.now()}.${e}`);
+  fs.writeFileSync(file, buf);
+  return file;
 }
 
-module.exports = { fetchArt, testKey, sgdbSearch, sgdbBySteam, sgdbIcons, sgdbImages, smartTerm, saveImage };
+/* ───── Marken-Logos ohne Schlüssel (Simple Icons) und Website-Symbole ───── */
+const SI = 'https://cdn.simpleicons.org';
+function brandSlugs(term) {
+  const t = String(term || '').toLowerCase().trim();
+  const slug = (x) => x.replace(/\+/g, 'plus').replace(/\./g, 'dot').replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+  const words = t.split(/\s+/).filter(Boolean);
+  const cand = [slug(t), words[0] && slug(words[0]), slug(t.replace(/\b(app|desktop|launcher|client|for windows|beta)\b/g, '')), 'google' + slug(t)];
+  if (/youtube music/.test(t)) cand.unshift('youtubemusic');
+  if (/gemini/.test(t)) cand.unshift('googlegemini');
+  if (/chrome/.test(t)) cand.unshift('googlechrome');
+  if (/visual studio code|vs ?code/.test(t)) cand.unshift('visualstudiocode');
+  return [...new Set(cand.filter((x) => x && x.length > 1))];
+}
+async function exists(url) {
+  try { const r = await fetch(url, { headers: { 'User-Agent': 'Bibliothek/0.6' } }); return r.ok && /svg/.test(r.headers.get('content-type') || ''); } catch { return false; }
+}
+/** Logos zu einem Namen: je Treffer in Originalfarbe, Weiß und Gold; bei Websites zusätzlich deren Symbol */
+async function brandIcons(term, host) {
+  const out = [];
+  const found = [];
+  for (const sl of brandSlugs(term)) {
+    if (found.length >= 2) break;
+    if (await exists(`${SI}/${sl}`)) found.push(sl);
+  }
+  for (const sl of found) {
+    for (const [c, label] of [['', 'Original'], ['/ffffff', 'Weiß'], ['/e7c98a', 'Gold']]) {
+      const u = `${SI}/${sl}${c}`;
+      out.push({ url: u, thumb: u, label: `${sl} · ${label}`, source: 'Simple Icons' });
+    }
+  }
+  if (host) {
+    for (const u of [`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=256`, `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`]) {
+      out.push({ url: u, thumb: u, label: 'Website-Symbol', source: 'Website' });
+    }
+  }
+  return out;
+}
+
+module.exports = { fetchArt, testKey, sgdbSearch, sgdbBySteam, sgdbIcons, brandIcons, sgdbImages, smartTerm, saveImage };

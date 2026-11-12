@@ -619,43 +619,49 @@ function openDetail(id) {
     </div></div></div>`);
 }
 
-/* Icon auswählen (Programme & Schnellstart-Kacheln) */
-function openIconPicker(target, term, title) {
-  const P = { term: term || '', games: [], sel: null, icons: null, loading: false, error: null };
+/* Icon auswählen (Programme & Schnellstart-Kacheln)
+   Quellen: Marken-Logos (Simple Icons, ohne Schlüssel), Website-Symbol, SteamGridDB-Icons, eigenes Bild */
+function openIconPicker(target, term, title, host) {
+  const P = { term: term || '', brands: null, games: [], sel: null, icons: null, sgdbMsg: null, loadingB: false, loadingS: false };
+  const grid = (list, prefix) => list.map((x, i) => `<button class="pick" data-act="ip-pick" data-src="${prefix}" data-i="${i}" title="${esc(x.label || '')}"><img src="${esc(x.thumb)}" data-srcs="${attr([x.thumb])}" loading="lazy" alt=""></button>`).join('');
   const draw = () => {
-    $('#overlay').innerHTML = `<div class="modal picker" style="width:min(980px,92vw)"><div class="modal-head"><h2>Icon für ${esc(title)}</h2><button class="icon-btn" style="width:38px;height:38px" data-act="close" aria-label="Schließen">${I.x}</button></div>
+    $('#overlay').innerHTML = `<div class="modal picker" style="width:min(1000px,92vw)"><div class="modal-head"><h2>Icon für ${esc(title)}</h2><button class="icon-btn" style="width:38px;height:38px" data-act="close" aria-label="Schließen">${I.x}</button></div>
       <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
-        <div class="row"><input class="field" id="ipq" value="${esc(P.term)}" placeholder="z. B. Discord, Spotify, YouTube" style="flex:1" autocomplete="off" spellcheck="false"><button class="btn small quiet" data-act="ip-search">Suchen</button>
+        <div class="row"><input class="field" id="ipq" value="${esc(P.term)}" placeholder="z. B. Claude, WhatsApp, Twitch" style="flex:1" autocomplete="off" spellcheck="false"><button class="btn small quiet" data-act="ip-search">Suchen</button>
           <button class="btn small quiet" data-act="ip-file">Eigenes Bild …</button><button class="btn small quiet" data-act="ip-reset">Zurücksetzen</button></div>
+        <div class="eyebrow">Marken-Logos${host ? ' & Website-Symbol' : ''}</div>
+        <div class="pick-grid icon">${P.loadingB ? '<div class="muted" style="padding:16px"><span class="spin"></span> Suche Logos …</div>'
+          : P.brands && P.brands.length ? grid(P.brands, 'b') : '<div class="muted" style="padding:16px">Kein Marken-Logo unter diesem Namen. Probier einen anderen Begriff (z. B. nur den Markennamen).</div>'}</div>
+        <div class="eyebrow" style="margin-top:6px">SteamGridDB</div>
         ${P.games.length ? `<div class="filters" style="margin:0">${P.games.map((x) => `<button class="pill" data-act="ip-game" data-gid="${x.id}" aria-pressed="${P.sel === x.id}">${esc(x.name)}</button>`).join('')}</div>` : ''}
-        <div class="pick-grid icon">${P.loading ? '<div class="muted" style="padding:30px"><span class="spin"></span> Lade Icons …</div>'
-          : P.error ? `<div class="muted" style="padding:30px;color:var(--danger)">${esc(P.error)}</div>`
-          : P.icons && P.icons.length ? P.icons.map((x, i) => `<button class="pick" data-act="ip-pick" data-i="${i}"><img src="${esc(x.thumb)}" loading="lazy" alt=""></button>`).join('')
-          : P.icons ? '<div class="muted" style="padding:30px">Keine Icons für diesen Treffer. Probier einen anderen oder nimm ein eigenes Bild.</div>' : ''}</div>
-        <div class="muted" style="font-size:11.5px">Icons von SteamGridDB, sortiert nach Bewertung. „Eigenes Bild“ nimmt jede PNG/JPG/ICO-Datei von deinem PC.</div>
+        <div class="pick-grid icon">${P.loadingS ? '<div class="muted" style="padding:16px"><span class="spin"></span> Lade Icons …</div>'
+          : P.sgdbMsg ? `<div class="muted" style="padding:16px">${esc(P.sgdbMsg)}</div>`
+          : P.icons && P.icons.length ? grid(P.icons, 's') : '<div class="muted" style="padding:16px">Keine Icons für diesen Treffer.</div>'}</div>
+        <div class="muted" style="font-size:11.5px">Marken-Logos von Simple Icons (Original, Weiß oder Gold) · Icons von SteamGridDB · „Eigenes Bild“ nimmt jede PNG/JPG/SVG/ICO-Datei.</div>
       </div></div>`;
     $('#overlay').hidden = false;
     $('#ipq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ACTIONS['ip-search'](); } });
   };
   const loadGame = async (gid) => {
-    P.sel = gid; P.loading = true; P.error = null; draw();
-    try { P.icons = await gx.iconImages(gid); } catch (e) { P.error = e.message; }
-    P.loading = false; draw();
+    P.sel = gid; P.loadingS = true; draw();
+    try { P.icons = await gx.iconImages(gid); P.sgdbMsg = null; } catch (e) { P.sgdbMsg = e.message; }
+    P.loadingS = false; draw();
   };
   const search = async (t) => {
-    P.term = t; P.loading = true; P.error = null; P.icons = null; P.games = []; draw();
+    P.term = t; P.brands = null; P.icons = null; P.games = []; P.sgdbMsg = null; P.loadingB = true; P.loadingS = true; draw();
+    gx.brandIcons(t, host).then((b) => { P.brands = b; }).catch(() => { P.brands = []; }).finally(() => { P.loadingB = false; draw(); });
     try {
       P.games = await gx.iconSearch(t);
       if (P.games.length) return loadGame(P.games[0].id);
-      P.error = 'Nichts gefunden.';
-    } catch (e) { P.error = e.message; }
-    P.loading = false; draw();
+      P.sgdbMsg = 'Bei SteamGridDB nichts gefunden.';
+    } catch (e) { P.sgdbMsg = /Schlüssel/.test(e.message) ? 'Ohne SteamGridDB-Schlüssel nicht verfügbar – Marken-Logos und eigenes Bild gehen trotzdem.' : e.message; }
+    P.loadingS = false; draw();
   };
   const done = async (src, msg) => { if (await act(gx.iconPick(target, src), msg)) closeOverlay(); };
   Object.assign(ACTIONS, {
     'ip-search': () => search($('#ipq').value),
     'ip-game': (d) => loadGame(+d.gid),
-    'ip-pick': (d) => { const x = P.icons[+d.i]; if (x) done(x.url, 'Icon übernommen.'); },
+    'ip-pick': (d) => { const x = (d.src === 'b' ? P.brands : P.icons)[+d.i]; if (x) done(x.url, 'Icon übernommen.'); },
     'ip-file': async () => {
       const f = await act(gx.pickFile({ title: 'Bild für das Icon wählen', filters: [{ name: 'Bilder', extensions: ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'] }] }));
       if (f) done(f, 'Eigenes Icon übernommen.');
@@ -663,7 +669,7 @@ function openIconPicker(target, term, title) {
     'ip-reset': () => done(null, 'Icon zurückgesetzt.'),
   });
   draw();
-  if (P.term) search(P.term);
+  search(P.term);
 }
 
 /* Bilder auswählen (SteamGridDB) */

@@ -429,3 +429,5 @@ body.companion { background: var(--bg); }
 .pick-grid.icon { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 .pick-grid.icon .pick { aspect-ratio: 1; padding: 14px; background: #0f0d0a; }
 .pick-grid.icon .pick img { object-fit: contain; }
+.pick-grid.icon { max-height: 30vh; }
+.pick-grid > .muted { grid-column: 1 / -1; }

@@ -200,7 +200,7 @@
       const t = tiles()[+d.i];
       if (!t) return;
       const term = t.type === 'web' ? (hostOf(t.url).replace(/^(www|music)\./, '').split('.')[0]) : t.name;
-      openIconPicker({ kind: 'tile', id: t.id }, t.name === 'YouTube Music' ? 'YouTube Music' : (t.name || term), t.name);
+      openIconPicker({ kind: 'tile', id: t.id }, t.name || term, t.name, t.type === 'web' ? hostOf(t.url) : null);
     },
     'q-edit': () => { S.compEdit = !S.compEdit; render(); },
     'q-move': (d) => {

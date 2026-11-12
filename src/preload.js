@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('gx', {
   iconSearch: (term) => call('iconSearch', term),
   iconImages: (sgdbId) => call('iconImages', sgdbId),
   iconPick: (target, src) => call('iconPick', target, src),
+  brandIcons: (term, host) => call('brandIcons', term, host),
   openUrl: (url, displayId) => call('openUrl', url, displayId),
   openTile: (tile, displayId) => call('openTile', tile, displayId),
   cornerHit: () => ipcRenderer.send('corner-hit'),

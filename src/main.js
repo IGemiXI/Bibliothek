@@ -869,6 +869,8 @@ handle('iconSearch', async (term) => {
   return (await Art.sgdbSearch(String(term || '').trim(), config.sgdbKey)).slice(0, 8);
 });
 handle('iconImages', async (sgdbId) => Art.sgdbIcons(sgdbId, config.sgdbKey));
+handle('brandIcons', async (term, host) => Art.brandIcons(term, host));
+handle('hasSgdbKey', () => !!config.sgdbKey);
 handle('iconPick', async (target, src) => {
   // src = Web-Adresse (SteamGridDB) oder Pfad zu einer eigenen Bilddatei; null = zurücksetzen
   let file = null;
