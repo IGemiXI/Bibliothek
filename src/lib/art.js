@@ -41,14 +41,25 @@ function searchTerm(name) {
   return String(name).replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/* Bessere Suchbegriffe für bekannte Fälle */
+function smartTerm(name) {
+  const n = String(name);
+  if (/classic era|anniversary|hardcore/i.test(n) && /wow|warcraft/i.test(n)) return 'World of Warcraft Classic';
+  if (/^wow\b/i.test(n)) return n.replace(/^wow\b/i, 'World of Warcraft');
+  return searchTerm(n);
+}
+
+async function sgdbSearch(term, key) {
+  const r = await getJSON(`${SGDB}/search/autocomplete/${encodeURIComponent(term)}`, { Authorization: 'Bearer ' + key });
+  return ((r && r.data) || []).map((g) => ({ id: g.id, name: g.name, year: g.release_date ? new Date(g.release_date * 1000).getFullYear() : null }));
+}
+
 async function sgdbFind(name, key) {
-  const auth = { Authorization: 'Bearer ' + key };
   // Erst der volle Name, dann schrittweise kürzer („World of Warcraft Forever“ → „World of Warcraft“)
-  const words = searchTerm(name).split(' ');
+  const words = smartTerm(name).split(' ');
   for (let n = words.length; n >= Math.min(2, words.length); n--) {
     const term = words.slice(0, n).join(' ');
-    const r = await getJSON(`${SGDB}/search/autocomplete/${encodeURIComponent(term)}`, auth);
-    const list = (r && r.data) || [];
+    const list = await sgdbSearch(term, key);
     if (!list.length) continue;
     const exact = list.find((g) => norm(g.name) === norm(term));
     return exact || list[0];
@@ -56,16 +67,19 @@ async function sgdbFind(name, key) {
   return null;
 }
 
+/* Nur saubere Bilder, sortiert nach Bewertung der Community */
+const clean = (x) => !x.nsfw && !x.humor && !x.epilepsy && !(x.tags || []).some((t) => /nsfw|humor|meme/i.test(t));
+const rank = (a, b) => (b.score || 0) - (a.score || 0) || (b.upvotes || 0) - (a.upvotes || 0);
+
 async function sgdbImages(gameId, key) {
   const auth = { Authorization: 'Bearer ' + key };
+  const q = 'nsfw=false&humor=false&epilepsy=false&types=static';
   const [grids, heroes] = await Promise.all([
-    getJSON(`${SGDB}/grids/game/${gameId}?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false`, auth).catch(() => null),
-    getJSON(`${SGDB}/heroes/game/${gameId}?types=static&nsfw=false&humor=false`, auth).catch(() => null),
+    getJSON(`${SGDB}/grids/game/${gameId}?dimensions=600x900,342x482,660x930&${q}`, auth).catch(() => null),
+    getJSON(`${SGDB}/heroes/game/${gameId}?${q}`, auth).catch(() => null),
   ]);
-  return {
-    covers: ((grids && grids.data) || []).map((x) => x.url),
-    heroes: ((heroes && heroes.data) || []).map((x) => x.url),
-  };
+  const pick = (r) => ((r && r.data) || []).filter(clean).sort(rank).map((x) => ({ url: x.url, thumb: x.thumb || x.url, score: x.score || 0 }));
+  return { covers: pick(grids), heroes: pick(heroes) };
 }
 
 async function steamFind(name) {
@@ -75,7 +89,7 @@ async function steamFind(name) {
   const hit = items.find((i) => norm(i.name) === norm(term)) || items.find((i) => norm(i.name).startsWith(norm(term)) && norm(term).length > 5);
   if (!hit) return null;
   const cdn = `https://cdn.cloudflare.steamstatic.com/steam/apps/${hit.id}`;
-  return { covers: [`${cdn}/library_600x900.jpg`], heroes: [`${cdn}/library_hero.jpg`] };
+  return { covers: [{ url: `${cdn}/library_600x900.jpg`, thumb: `${cdn}/library_600x900.jpg` }], heroes: [{ url: `${cdn}/library_hero.jpg`, thumb: `${cdn}/library_hero.jpg` }] };
 }
 
 /**
@@ -100,11 +114,11 @@ async function fetchArt(game, opt) {
   const out = { source, count: imgs.covers.length };
   const safe = game.id.replace(/[^a-z0-9_-]/gi, '_');
   const ext = (u) => (u.match(/\.(png|jpe?g|webp)(\?|$)/i) || [, 'jpg'])[1].toLowerCase();
-  const cUrl = imgs.covers[idx];
+  const cUrl = imgs.covers[idx].url;
   out.cover = await download(cUrl, path.join(opt.dir, `${safe}-cover-${idx}.${ext(cUrl)}`)).catch(() => undefined);
   if (imgs.heroes.length) {
-    const hUrl = imgs.heroes[idx % imgs.heroes.length];
-    out.hero = await download(hUrl, path.join(opt.dir, `${safe}-hero-${idx % imgs.heroes.length}.${ext(hUrl)}`)).catch(() => undefined);
+    const hUrl = imgs.heroes[0].url;
+    out.hero = await download(hUrl, path.join(opt.dir, `${safe}-hero-auto.${ext(hUrl)}`)).catch(() => undefined);
   }
   return out.cover ? out : null;
 }
@@ -114,4 +128,11 @@ async function testKey(key) {
   return true;
 }
 
-module.exports = { fetchArt, testKey };
+/** Ein gewähltes Bild speichern */
+async function saveImage(gameId, url, kind, dir) {
+  const safe = gameId.replace(/[^a-z0-9_-]/gi, '_');
+  const e = (url.match(/\.(png|jpe?g|webp)(\?|$)/i) || [, 'jpg'])[1].toLowerCase();
+  return download(url, path.join(dir, `${safe}-${kind}-${Date.now()}.${e}`));
+}
+
+module.exports = { fetchArt, testKey, sgdbSearch, sgdbImages, smartTerm, saveImage };

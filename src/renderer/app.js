@@ -607,7 +607,7 @@ function openDetail(id) {
         <div><div class="eyebrow" style="margin-bottom:8px">Name</div>
           <div class="row"><input class="field" id="g-name" value="${esc(g.name)}" style="flex:1"><button class="btn small quiet" data-act="g-rename" data-id="${esc(g.id)}">Speichern</button>${g.name !== g.originalName ? `<button class="btn small quiet" data-act="g-rename-reset" data-id="${esc(g.id)}">Original</button>` : ''}</div></div>
         <div class="row">
-          ${g.source !== 'steam' ? `<button class="btn small quiet" data-act="art-next" data-id="${esc(g.id)}">Anderes Cover</button>` : ''}
+          ${g.source !== 'steam' ? `<button class="btn small gold" data-act="art-pick" data-id="${esc(g.id)}">Bilder auswählen</button>` : ''}
           <button class="btn small quiet" data-act="g-cover" data-id="${esc(g.id)}">Eigenes Bild</button>
           <button class="btn small quiet" data-act="g-hero" data-id="${esc(g.id)}">Titelbild wählen</button>
           <button class="btn small quiet" data-act="g-launch" data-id="${esc(g.id)}">Startprogramm ändern</button>
@@ -616,6 +616,60 @@ function openDetail(id) {
         </div>
       </div>
     </div></div></div>`);
+}
+
+/* Bilder auswählen (SteamGridDB) */
+async function openArtPicker(id) {
+  const g = gameById(id);
+  if (!g) return;
+  const P = { id, term: '', games: [], sel: null, tab: 'cover', imgs: null, loading: true, error: null };
+  const draw = () => {
+    const list = P.imgs ? (P.tab === 'cover' ? P.imgs.covers : P.imgs.heroes) : [];
+    $('#overlay').innerHTML = `<div class="modal picker"><div class="modal-head"><h2>Bilder für ${esc(g.name)}</h2><button class="icon-btn" style="width:38px;height:38px" data-act="close" aria-label="Schließen">${I.x}</button></div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+        <div class="row"><input class="field" id="apq" value="${esc(P.term)}" placeholder="Spiel suchen" style="flex:1" autocomplete="off" spellcheck="false"><button class="btn small quiet" data-act="ap-search">Suchen</button></div>
+        ${P.games.length ? `<div class="filters" style="margin:0">${P.games.map((x) => `<button class="pill" data-act="ap-game" data-gid="${x.id}" aria-pressed="${P.sel === x.id}">${esc(x.name)}${x.year ? `<span class="n">${x.year}</span>` : ''}</button>`).join('')}</div>` : ''}
+        <div class="seg" style="width:320px"><button data-act="ap-tab" data-t="cover" aria-pressed="${P.tab === 'cover'}">Cover</button><button data-act="ap-tab" data-t="hero" aria-pressed="${P.tab === 'hero'}">Titelbild</button></div>
+        <div class="pick-grid ${P.tab}">${P.loading ? '<div class="muted" style="padding:30px"><span class="spin"></span> Lade Bilder …</div>'
+          : P.error ? `<div class="muted" style="padding:30px;color:var(--danger)">${esc(P.error)}</div>`
+          : list.length ? list.map((x, i) => `<button class="pick" data-act="ap-pick" data-i="${i}"><img src="${esc(x.thumb)}" loading="lazy" alt=""></button>`).join('')
+          : '<div class="muted" style="padding:30px">Keine Bilder gefunden. Probier einen anderen Suchbegriff.</div>'}</div>
+        <div class="muted" style="font-size:11.5px">Bilder von SteamGridDB, sortiert nach Bewertung der Community. Klick auf ein Bild übernimmt es.</div>
+      </div></div>`;
+    $('#overlay').hidden = false;
+    const q = $('#apq');
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ACTIONS['ap-search'](); } });
+  };
+  const loadGame = async (gid) => {
+    P.sel = gid; P.loading = true; P.error = null; draw();
+    try { P.imgs = await gx.artImages(gid); } catch (e) { P.error = e.message; }
+    P.loading = false; draw();
+  };
+  const search = async (term) => {
+    P.loading = true; P.error = null; P.imgs = null; draw();
+    try {
+      const r = await gx.artSearch(id, term);
+      P.term = r.term; P.games = r.games;
+      if (r.games.length) return loadGame(r.games[0].id);
+      P.error = 'Kein Spiel mit diesem Namen gefunden.';
+    } catch (e) { P.error = e.message; }
+    P.loading = false; draw();
+  };
+  Object.assign(ACTIONS, {
+    'ap-search': () => search($('#apq').value),
+    'ap-game': (d) => loadGame(+d.gid),
+    'ap-tab': (d) => { P.tab = d.t; draw(); },
+    'ap-pick': async (d) => {
+      const list = P.tab === 'cover' ? P.imgs.covers : P.imgs.heroes;
+      const x = list[+d.i];
+      if (!x) return;
+      toast('Bild wird übernommen …');
+      if (await act(gx.artPick(id, P.tab, x.url), P.tab === 'cover' ? 'Cover übernommen.' : 'Titelbild übernommen.')) {
+        if (P.tab === 'cover' && P.imgs.heroes.length) { P.tab = 'hero'; draw(); toast('Jetzt noch ein Titelbild wählen – oder schließen.'); }
+      }
+    },
+  });
+  search('');
 }
 
 /* Suche */
@@ -762,6 +816,7 @@ const ACTIONS = {
     popover(el.getBoundingClientRect ? { x: el.getBoundingClientRect().left, y: el.getBoundingClientRect().top } : el, `<div class="menu">${CAT_ORDER.map((k) => `<button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="${k}">${k === p.category ? I.star : '<span style="width:16px"></span>'}${esc(catLabel(k))}</button>`).join('')}${p.category !== p.autoCategory ? `<hr><button data-act="p-cat-set" data-id="${esc(d.id)}" data-k="">Automatisch (${esc(catLabel(p.autoCategory))})</button>` : ''}</div>`);
   },
   'p-cat-set': (d) => { closePopover(); act(gx.updateProgram(d.id, { category: d.k || null })); },
+  'art-pick': (d) => { closeOverlay(); openArtPicker(d.id); },
   'art-next': async (d) => {
     toast('Suche anderes Cover …');
     const r = await act(gx.artNext(d.id));

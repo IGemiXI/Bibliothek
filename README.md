@@ -49,7 +49,7 @@ Steam-Spiele bringen ihre Cover mit. Für alle anderen (Battle.net, Riot, Epic, 
 - ohne Schlüssel über den Steam-Shop (klappt bei Spielen, die es auch auf Steam gibt)
 - mit einem kostenlosen **SteamGridDB-Schlüssel** für praktisch alle Spiele, auch WoW. Den Schlüssel holst du auf https://www.steamgriddb.com/profile/preferences/api und fügst ihn unter Einstellungen → Bibliothek ein.
 
-In den Spiel-Details wechselt „Anderes Cover“ zwischen den gefundenen Bildern.
+Automatisch wird das am besten bewertete Bild genommen (ohne anstößige oder Spaßbilder). In den Spiel-Details öffnet **„Bilder auswählen“** eine Vorschau aller Cover und Titelbilder zum Selbstaussuchen – deine Auswahl wird nie wieder automatisch überschrieben.
 
 ## Startmodi (Einstellungen → Start)
 

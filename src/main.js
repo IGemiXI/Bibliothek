@@ -345,6 +345,7 @@ function buildArt(g, o) {
 /* ─────────────────────────── Cover suchen ─────────────────────────── */
 
 let artBusy = false;
+const ART_V = 2; // Version der Auswahl-Logik – ältere automatische Treffer werden neu gesucht
 async function fetchMissingArt(force) {
   if (artBusy) return;
   artBusy = true;
@@ -354,13 +355,14 @@ async function fetchMissingArt(force) {
       const o = config.games[g.id] || {};
       const name = o.name || g.name;
       const a = artMap[g.id];
-      const fresh = a && a.name === name && (a.cover ? U.exists(a.cover) : (a.withKey === !!config.sgdbKey && Date.now() - (a.tried || 0) < 3 * 864e5));
+      if (a && a.picked && a.cover && U.exists(a.cover)) continue; // selbst ausgewählt – nie überschreiben
+      const fresh = a && a.v === ART_V && a.name === name && (a.cover ? U.exists(a.cover) : (a.withKey === !!config.sgdbKey && Date.now() - (a.tried || 0) < 3 * 864e5));
       if (fresh && !force) continue;
       try {
         const r = await Art.fetchArt({ id: g.id, name }, { dir: ART_DIR, key: config.sgdbKey, index: 0 });
-        artMap[g.id] = Object.assign({ name, tried: Date.now(), index: 0, withKey: !!config.sgdbKey }, r || {});
+        artMap[g.id] = Object.assign({ v: ART_V, name, tried: Date.now(), index: 0, withKey: !!config.sgdbKey }, r || {});
       } catch (e) {
-        artMap[g.id] = { name, tried: Date.now(), error: e.message, withKey: !!config.sgdbKey };
+        artMap[g.id] = { v: ART_V, name, tried: Date.now(), error: e.message, withKey: !!config.sgdbKey };
         if (/Schlüssel/.test(e.message)) { send('toast', { kind: 'error', text: e.message }); break; }
       }
       saveArt();
@@ -815,6 +817,34 @@ handle('artNext', async (id) => {
   return { count: r.count, source: r.source };
 });
 const o2 = (id) => config.games[id] || {};
+
+/* Bilder selbst auswählen */
+handle('artSearch', async (id, term) => {
+  if (!config.sgdbKey) throw new Error('Für die Bildauswahl braucht die Bibliothek einen SteamGridDB-Schlüssel (Einstellungen → Bibliothek).');
+  const g = cache.games.find((x) => x.id === id);
+  if (!g) throw new Error('Spiel nicht gefunden');
+  const name = (config.games[id] || {}).name || g.name;
+  const t = (term && term.trim()) || Art.smartTerm(name);
+  let games = await Art.sgdbSearch(t, config.sgdbKey);
+  if (!games.length && !term) games = await Art.sgdbSearch(t.split(' ').slice(0, 3).join(' '), config.sgdbKey);
+  return { term: t, games: games.slice(0, 8) };
+});
+handle('artImages', async (sgdbId) => {
+  if (!config.sgdbKey) throw new Error('Kein SteamGridDB-Schlüssel');
+  const r = await Art.sgdbImages(sgdbId, config.sgdbKey);
+  return { covers: r.covers.slice(0, 40), heroes: r.heroes.slice(0, 24) };
+});
+handle('artPick', async (id, kind, url) => {
+  const file = await Art.saveImage(id, url, kind, ART_DIR);
+  const a = artMap[id] || {};
+  const name = (config.games[id] || {}).name || ((cache.games.find((x) => x.id === id) || {}).name);
+  artMap[id] = Object.assign({}, a, { v: ART_V, name, picked: true, source: 'SteamGridDB', [kind]: file });
+  const o = config.games[id];
+  if (o && o[kind]) { delete o[kind]; saveConfig(); }
+  saveArt();
+  pushState();
+  return true;
+});
 
 handle('updateProgram', (id, patch) => {
   const o = Object.assign({}, config.programs[id] || {}, patch);
