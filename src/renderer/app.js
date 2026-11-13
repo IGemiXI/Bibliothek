@@ -146,6 +146,18 @@ document.addEventListener('load', (e) => {
   }
 }, true);
 
+/* Blinkende Fenster / Zahlen im Titel einer App zuordnen */
+const cleanTitle = (t) => String(t || '').replace(/^\s*[(\[]\d+[)\]]\s*/, '');
+const normP = (p) => String(p || '').replace(/\//g, '\\').toLowerCase();
+function liveForProgram(programId) {
+  const p = programId && progById(programId);
+  if (!p || !p.target) return null;
+  const t = normP(p.target);
+  const w = (S.notif && S.notif.live || []).find((x) => normP(x.path) === t);
+  return w || null;
+}
+const liveDot = (w) => (w ? `<span class="live-dot${w.attention ? ' attn' : ''}">${w.badge ? (w.badge > 99 ? '99+' : w.badge) : ''}</span>` : '');
+
 /* ───────── Schnellstart (gleiche Kacheln wie auf dem Zweitbildschirm) ───────── */
 function hostOfUrl(url) { try { return new URL(/^https?:/i.test(url) ? url : 'https://' + url).hostname; } catch { return ''; } }
 function quickIcon(t) {
@@ -173,7 +185,7 @@ function renderSide() {
     <div class="side-label gap">Ablage</div>
     ${nav('inbox', 'Eingangskorb', I.inbox, inboxCount ? `<span class="badge">${inboxCount}</span>` : '')}
     ${st && (st.config.quickTiles || []).length ? `<div class="side-label gap">Schnellstart</div>
-    <div class="side-quick">${st.config.quickTiles.map((t, i) => `<button class="nav quick-nav" data-act="side-tile" data-i="${i}" title="${esc(t.name)}"><span class="sq-ic">${quickIcon(t)}</span><span class="sq-t">${esc(t.name)}</span></button>`).join('')}</div>` : '<div class="side-spacer"></div>'}
+    <div class="side-quick">${st.config.quickTiles.map((t, i) => `<button class="nav quick-nav" data-act="side-tile" data-i="${i}" title="${esc(t.name)}"><span class="sq-ic">${quickIcon(t)}${t.type === 'program' ? liveDot(liveForProgram(t.programId)) : ''}</span><span class="sq-t">${esc(t.name)}</span></button>`).join('')}</div>` : '<div class="side-spacer"></div>'}
     <button class="nav side-toggle" data-act="side-toggle" title="${collapsed ? 'Leiste ausklappen' : 'Leiste einklappen'}">${collapsed ? I.chevR : I.chevL}<span class="lbl">Einklappen</span></button>
     ${nav('settings', 'Einstellungen', I.gear)}
     <div class="profile">
@@ -189,7 +201,7 @@ function renderTop() {
   const now = new Date();
   const winChips = S.wins.slice(0, 7).map((w) => {
     const ic = S.winIcons[w.path];
-    return `<button class="win-chip" data-act="win-focus" data-h="${w.h}" title="${esc(w.title)}">${ic ? `<img src="${ic}" alt="">` : '<span class="ph"></span>'}<span class="t">${esc(w.title)}</span>${multiMon() && w.mon ? `<span class="mon" title="Bildschirm ${w.mon}">${w.mon}</span>` : ''}<span class="x" data-act="win-close" data-h="${w.h}" title="Schließen">×</span></button>`;
+    return `<button class="win-chip${w.attention ? ' attention' : ''}" data-act="win-focus" data-h="${w.h}" title="${esc(w.title)}">${ic ? `<img src="${ic}" alt="">` : '<span class="ph"></span>'}${w.badge ? `<span class="chip-badge">${w.badge > 99 ? '99+' : w.badge}</span>` : ''}<span class="t">${esc(cleanTitle(w.title))}</span>${multiMon() && w.mon ? `<span class="mon" title="Bildschirm ${w.mon}">${w.mon}</span>` : ''}<span class="x" data-act="win-close" data-h="${w.h}" title="Schließen">×</span></button>`;
   }).join('');
   $('#top').innerHTML = `
     <button class="search-btn" data-act="search">${I.search}<span class="grow">Einfach lostippen – Spiele, Programme …</span><span class="kbd">Strg K</span></button>
@@ -839,6 +851,13 @@ function notifRow(n, compact) {
     <span class="n-body"><span class="n-head"><b>${esc(n.app)}</b><span>${esc(fmtAgo(n.time))}</span></span>
     <span class="n-title">${esc(n.title)}</span>${n.body ? `<span class="n-text">${esc(n.body)}</span>` : ''}</span></button>`;
 }
+function liveRow(w, compact) {
+  const ic = w.icon ? `<span class="mono">${esc(w.app.charAt(0))}</span><img src="${esc(w.icon)}" data-srcs="${attr([w.icon])}" alt="">` : `<span class="mono">${esc((w.app || '?').charAt(0))}</span>`;
+  return `<button class="notif live${w.attention ? ' attn' : ''}${compact ? ' compact' : ''}" data-act="win-focus" data-h="${w.h}">
+    <span class="n-ic">${ic}${liveDot(w)}</span>
+    <span class="n-body"><span class="n-head"><b>${esc(w.app)}</b><span>${w.attention ? 'blinkt' : w.badge ? w.badge + ' neu' : ''}</span></span>
+    <span class="n-title">${esc(w.title)}</span></span></button>`;
+}
 function fmtAgo(ts) {
   if (!ts) return '';
   const m = Math.round((Date.now() - ts) / 60000);
@@ -852,8 +871,10 @@ function notifPopover(anchor) {
   const N = S.notif || { items: [] };
   popover(anchor, `<div class="notif-pop">
     <div class="notif-pop-head"><span class="eyebrow">Benachrichtigungen</span><span class="muted" style="margin-left:auto;font-size:11.5px">${N.items.length ? N.items.length + ' zuletzt' : ''}</span></div>
-    <div class="notif-list">${N.error ? `<div class="muted" style="padding:16px;line-height:1.5">${esc(N.error)}</div>` : ''}
-      ${N.items.length ? N.items.map((n) => notifRow(n)).join('') : N.error ? '' : '<div class="muted" style="padding:20px;line-height:1.6">Keine Benachrichtigungen.<br><span style="font-size:11.5px">Hier erscheint, was Apps wie WhatsApp, Discord oder Battle.net an Windows melden.</span></div>'}</div>
+    <div class="notif-list">
+      ${(N.live || []).length ? `<div class="res-group" style="padding:4px 6px">Wartet auf dich</div>${N.live.map((w) => liveRow(w)).join('')}<div class="res-group" style="padding:10px 6px 4px">Windows-Benachrichtigungen</div>` : ''}
+      ${N.error ? `<div class="muted" style="padding:16px;line-height:1.5">${esc(N.error)}</div>` : ''}
+      ${N.items.length ? N.items.map((n) => notifRow(n)).join('') : N.error ? '' : `<div class="muted" style="padding:${(N.live || []).length ? '8px 10px' : '20px'};line-height:1.6;font-size:12.5px">${(N.live || []).length ? 'Keine Windows-Benachrichtigungen.' : 'Alles ruhig.<br><span style="font-size:11.5px">Hier erscheint, wenn eine App blinkt (z. B. Steam), eine Zahl im Fenstertitel hat oder an Windows meldet.</span>'}</div>`}</div>
   </div>`, true);
   if (N.unread) gx.notifSeen().catch(() => {});
 }
@@ -938,7 +959,7 @@ const ACTIONS = {
   'notif-open': (d) => { closePopover(); act(gx.notifOpen(d.app)); },
   'power-pop': (_d, el) => powerPopover(el),
   tool: (d) => { closePopover(); act(gx.tool(d.key)); },
-  'win-focus': (d) => act(gx.focusWindow(+d.h)),
+  'win-focus': (d) => { closePopover(); act(gx.focusWindow(+d.h)); },
   'win-close': (d) => { act(gx.closeWindow(+d.h)); setTimeout(refreshWindows, 600); },
   power: async (d) => {
     closePopover();
@@ -1202,10 +1223,11 @@ gx.on('notifications', (n) => {
   S.notif = n;
   if (IS_COMPANION) { if (window.renderCompanion) window.renderCompanion(); return; }
   renderTop();
+  renderSide();
 });
 gx.on('winkey', () => { if (IS_COMPANION) return; closePopover(); refreshWindows(); });
 gx.on('inbox-changed', () => { if (!IS_COMPANION) loadInbox(); });
-gx.on('windows', () => { if (IS_COMPANION) return; refreshWindows(); refreshVolume(); });
+gx.on('windows', () => { if (IS_COMPANION) { if (window.refreshCompanion) window.refreshCompanion(); return; } refreshWindows(); refreshVolume(); });
 
 if (!IS_COMPANION) (async function init() {
   S.state = await gx.state();

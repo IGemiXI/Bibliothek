@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-1b1712?style=for-the-badge&logo=windows&logoColor=d6b268&labelColor=0b0a08" alt="Windows 10 | 11">
-  <img src="https://img.shields.io/badge/Version-0.8-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.8">
+  <img src="https://img.shields.io/badge/Version-0.8.1-1b1712?style=for-the-badge&labelColor=0b0a08&color=a8853f" alt="Version 0.8.1">
   <img src="https://img.shields.io/badge/Electron-33-1b1712?style=for-the-badge&logo=electron&logoColor=d6b268&labelColor=0b0a08" alt="Electron">
   <img src="https://img.shields.io/badge/Sprache-Deutsch-1b1712?style=for-the-badge&labelColor=0b0a08&color=6e5a32" alt="Deutsch">
 </p>
@@ -88,7 +88,7 @@ Ton, Anzeige, Netzwerk, Bluetooth, Systemsteuerung, Task-Manager & Co. als Kache
 </tr>
 </table>
 
-**Außerdem:** 🔔 **Benachrichtigungen** von WhatsApp, Discord, Battle.net & Co. an einem Ort · Dateien per **Drag & Drop** direkt in WhatsApp, Discord oder Mail ziehen · **einklappbare Seitenleiste** (nur Icons) · Eingangskorb, der neue Downloads mit einem Klick einsortiert · eigene Dateiansicht für deine Ordner · Leiste mit allen offenen Fenstern als Taskleisten-Ersatz · System-Anzeige für CPU, GPU und RAM · Steuerung mit Maus, Tastatur oder Controller · persönliche Begrüßung mit deinem Namen.
+**Außerdem:** 🔔 **Benachrichtigungen** von WhatsApp, Discord, Battle.net & Co. an einem Ort – inklusive **orange blinkender Fenster** wie in der Taskleiste und Zählern im Fenstertitel · Dateien per **Drag & Drop** direkt in WhatsApp, Discord oder Mail ziehen · **einklappbare Seitenleiste** (nur Icons) · Eingangskorb, der neue Downloads mit einem Klick einsortiert · eigene Dateiansicht für deine Ordner · Leiste mit allen offenen Fenstern als Taskleisten-Ersatz · System-Anzeige für CPU, GPU und RAM · Steuerung mit Maus, Tastatur oder Controller · persönliche Begrüßung mit deinem Namen.
 
 ---
 
@@ -214,7 +214,7 @@ Die Bibliothek stellt die ursprüngliche Einstellung beim nächsten Beenden wied
 <summary><b>Benachrichtigungen erscheinen nicht</b></summary>
 <br>
 
-Die Bibliothek zeigt, was Apps an **Windows** melden. In der jeweiligen App müssen Desktop-Benachrichtigungen eingeschaltet sein (z. B. Discord: *Einstellungen → Benachrichtigungen*) und in Windows unter *Einstellungen → System → Benachrichtigungen* erlaubt sein. Steam zeigt viele Hinweise nur im eigenen Fenster oder Overlay – die kommen nicht bei Windows an.
+Blinkende Fenster (z. B. Steam) und Zahlen im Fenstertitel erkennt die Bibliothek immer – auch ohne Windows-Benachrichtigungen. Für die Liste der Mitteilungen gilt: Die Bibliothek zeigt, was Apps an **Windows** melden. In der jeweiligen App müssen Desktop-Benachrichtigungen eingeschaltet sein (z. B. Discord: *Einstellungen → Benachrichtigungen*) und in Windows unter *Einstellungen → System → Benachrichtigungen* erlaubt sein. Steam zeigt viele Hinweise nur im eigenen Fenster oder Overlay – die kommen nicht bei Windows an.
 
 </details>
 

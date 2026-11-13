@@ -7,7 +7,8 @@ try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } c
 try { [Console]::InputEncoding  = New-Object System.Text.UTF8Encoding $false } catch {}
 
 Add-Type -AssemblyName System.Drawing
-Add-Type -Language CSharp -ReferencedAssemblies System.Drawing -TypeDefinition @'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -Language CSharp -ReferencedAssemblies System.Drawing, System.Windows.Forms -TypeDefinition @'
 using System;
 using System.Text;
 using System.Collections.Generic;
@@ -264,6 +265,43 @@ public class GxHook {
   }
 }
 
+// Shell-Ereignisse mithören: Welches Fenster blinkt (wie Steam orange in der Taskleiste), welches wurde aktiviert?
+public class GxShell : System.Windows.Forms.Form {
+  [DllImport("user32.dll")] static extern bool RegisterShellHookWindow(IntPtr h);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessage(string s);
+  static uint shellMsg;
+  static readonly object outLock = new object();
+  static void Emit(string ev, long h) {
+    System.Threading.ThreadPool.QueueUserWorkItem(_ => {
+      lock (outLock) { Console.Out.WriteLine("{\"event\":\"" + ev + "\",\"h\":" + h + "}"); Console.Out.Flush(); }
+    });
+  }
+  public static void Start() {
+    var t = new System.Threading.Thread(() => {
+      var f = new GxShell();
+      f.ShowInTaskbar = false;
+      f.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+      IntPtr h = f.Handle; // erzeugt das (unsichtbare) Fenster
+      shellMsg = RegisterWindowMessage("SHELLHOOK");
+      RegisterShellHookWindow(h);
+      System.Windows.Forms.Application.Run();
+    });
+    t.SetApartmentState(System.Threading.ApartmentState.STA);
+    t.IsBackground = true;
+    t.Start();
+  }
+  protected override void WndProc(ref System.Windows.Forms.Message m) {
+    if (shellMsg != 0 && m.Msg == (int)shellMsg) {
+      int code = m.WParam.ToInt32();
+      long h = m.LParam.ToInt64();
+      if (code == 0x8006) Emit("flash", h);                       // HSHELL_FLASH – Fenster blinkt
+      else if (code == 4 || code == 0x8004) Emit("activated", h); // Fenster wurde geöffnet/aktiviert
+      else if (code == 2) Emit("destroyed", h);                   // Fenster geschlossen
+    }
+    base.WndProc(ref m);
+  }
+}
+
 // Große, scharfe Icons (bis 256 px) über die Windows-Bildlisten
 [ComImport, Guid("46EB5926-582E-4017-9FDF-E8998DAA0950"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IImageList {
@@ -480,7 +518,7 @@ function Props($path, [string[]]$names) {
 }
 
 $winlogon = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon'
-if ($Hook) { [GxHook]::Start() }
+if ($Hook) { [GxHook]::Start(); [GxShell]::Start() }
 
 Send @{ id = 0; ok = $true; data = 'ready' }
 

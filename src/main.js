@@ -168,10 +168,26 @@ async function launchOnDisplay(displayId, launch, matchPath) {
 }
 
 /* Fensterliste mit Bildschirmnummer (1, 2, 3 …) */
+/* Fenster, die Aufmerksamkeit wollen (blinken in der Taskleiste – z. B. Steam orange, Discord bei Direktnachrichten) */
+const attention = new Map(); // hwnd -> Zeitpunkt
+let lastWins = [];
+helper.on('flash', (ev) => {
+  const h = Number(ev && ev.h) || 0;
+  if (!h || ourHandles().has(h) || attention.has(h)) return;
+  attention.set(h, Date.now());
+  windowsWithMon().then(() => { send('windows'); send('notifications', notifPayload()); });
+});
+const clearAttention = (ev) => {
+  const h = Number(ev && ev.h) || 0;
+  if (attention.delete(h)) { send('windows'); send('notifications', notifPayload()); }
+};
+helper.on('activated', clearAttention);
+helper.on('destroyed', clearAttention);
+
 async function windowsWithMon() {
   const list = (await helper.safe('windows', { selfPid: process.pid }, [])) || [];
   const displays = displayList();
-  return list.map((w) => {
+  const res = list.map((w) => {
     let mon = null;
     try {
       const pt = screen.screenToDipPoint({ x: Math.round((w.l + w.r) / 2), y: Math.round((w.t + w.b) / 2) });
@@ -179,8 +195,13 @@ async function windowsWithMon() {
       const e = displays.find((x) => x.id === d.id);
       mon = e ? e.nr : null;
     } catch {}
-    return { h: w.h, title: w.title, path: w.path, mon };
+    const m = String(w.title || '').match(/^\s*[(\[](\d{1,4})[)\]]\s/);
+    return { h: w.h, title: w.title, path: w.path, mon, badge: m ? +m[1] : 0, attention: attention.has(w.h) };
   });
+  lastWins = res;
+  // Fenster, die es nicht mehr gibt, vergessen
+  for (const h of [...attention.keys()]) if (!res.some((w) => w.h === h)) attention.delete(h);
+  return res;
 }
 
 async function openUrl(url, displayId) {
@@ -1093,7 +1114,15 @@ function notifPayload() {
     const v = p ? programView(p) : null;
     return Object.assign({}, n, { icon: v ? v.icon : null, programId: p ? p.id : null, unread: n.time > seen });
   });
-  return { items, unread: items.filter((n) => n.unread).length, error: notifs.error };
+  // Blinkende Fenster und Zahlen im Fenstertitel – funktioniert auch ohne Windows-Benachrichtigungen
+  const progByPath = (p) => p && cache.programs.find((x) => x.target && U.normPath(x.target) === U.normPath(p));
+  const nameFor = (w) => { const p = progByPath(w.path); return p ? p.name : (w.path ? path.basename(w.path, path.extname(w.path)) : w.title); };
+  const iconFor = (w) => { const p = progByPath(w.path); return p ? programView(p).icon : null; };
+  const live = lastWins
+    .filter((w) => attention.has(w.h) || w.badge > 0)
+    .map((w) => ({ kind: 'window', h: w.h, app: nameFor(w), title: w.title.replace(/^\s*[(\[]\d+[)\]]\s*/, ''), badge: w.badge, attention: attention.has(w.h), time: attention.get(w.h) || 0, icon: iconFor(w), path: w.path }));
+  const liveCount = live.filter((w) => w.attention).length + live.filter((w) => !w.attention && w.badge > 0).length;
+  return { items, live, unread: items.filter((n) => n.unread).length + liveCount, error: notifs.error };
 }
 async function pollNotifications(force) {
   if (process.platform !== 'win32') return;

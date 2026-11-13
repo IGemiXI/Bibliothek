@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.8.1 – Blinken & Zähler
+- Fenster, die in der Taskleiste blinken würden (z. B. Steam orange, Discord bei Direktnachrichten), leuchten in der Bibliothek orange – in „Geöffnet“, auf dem Zweitbildschirm, im Schnellstart und unter „Wartet auf dich“ in der Glocke
+- Zahlen im Fenstertitel (z. B. „(3) YouTube“) erscheinen als rotes Abzeichen
+- Funktioniert auch, wenn Windows-Benachrichtigungen ausgeschaltet sind
+
 ## 0.8 – Benachrichtigungen & Teilen
 - 🔔 Benachrichtigungen von WhatsApp, Discord, Battle.net & Co. – Glocke mit Zähler, Klick öffnet die App; die neuesten auch auf dem Zweitbildschirm
 - Dateien aus „Ordner“ und dem Eingangskorb per Drag & Drop in andere Programme ziehen (WhatsApp, Discord, Mail …)

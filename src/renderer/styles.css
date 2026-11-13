@@ -478,3 +478,16 @@ body.companion { background: var(--bg); }
 .n-text { font-size: 12.5px; color: var(--text-3); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .notif.compact { padding: 8px; }
 .notif.compact .n-text { -webkit-line-clamp: 1; }
+
+/* ───────── Aufmerksamkeit (blinkt wie in der Taskleiste) ───────── */
+@keyframes attn { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,135,58,0); } 50% { box-shadow: 0 0 0 3px rgba(232,135,58,.35); } }
+.win-chip.attention, .comp-win.attention { border-color: #e8873a; background: linear-gradient(180deg, rgba(232,135,58,.22), rgba(232,135,58,.08)); color: #ffd9b8; animation: attn 1.6s ease-in-out infinite; }
+.chip-badge { position: absolute; left: 20px; top: 4px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px; background: #e04f4f; color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 2; }
+.chip-badge.static { position: static; margin-left: auto; }
+.live-dot { position: absolute; right: -4px; top: -4px; z-index: 3; min-width: 10px; height: 10px; padding: 0; border-radius: 6px; background: #e04f4f; color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--side); }
+.live-dot:not(:empty) { min-width: 16px; height: 16px; padding: 0 4px; }
+.live-dot.attn { background: #e8873a; animation: attn 1.6s ease-in-out infinite; }
+.quick .live-dot { right: 4px; top: 4px; transform: scale(1.4); box-shadow: 0 0 0 2px var(--panel-3); }
+.notif.attn { border-color: rgba(232,135,58,.6); background: rgba(232,135,58,.1); }
+.notif.attn .n-head b { color: #f0a868; }
+.notif.live .n-ic { overflow: visible; }

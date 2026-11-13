@@ -36,7 +36,7 @@
     const [w, h] = SIZES[t.size || 's'];
     const sub = t.type === 'web' ? esc(hostOf(t.url).replace(/^www\./, '')) : 'Programm';
     return `<button class="quick${S.compEdit ? ' editing' : ''}" style="grid-column:span ${w};grid-row:span ${h}" data-act="${S.compEdit ? 'noop' : 'q-open'}" data-i="${i}" data-w="${w}" data-h="${h}" title="${esc(t.type === 'web' ? t.url : t.name)}">
-      <span class="qi">${tileIcon(t)}</span><span class="qn">${esc(t.name)}</span><span class="qs">${sub}</span>
+      <span class="qi">${tileIcon(t)}${t.type === 'program' ? liveDot(liveForProgram(t.programId)) : ''}</span><span class="qn">${esc(t.name)}</span><span class="qs">${sub}</span>
       ${S.compEdit ? `<span class="qedit">
         <span class="qb" data-act="q-move" data-i="${i}" data-d="-1" title="Nach vorne">‹</span>
         <span class="qb wide" data-act="q-size" data-i="${i}" title="Größe ändern">${SIZES[t.size || 's'][2]}</span>
@@ -94,12 +94,13 @@
           ${L.side ? `<aside class="comp-side">
             <section class="panel widget" style="flex:1;min-height:0">
               <div class="widget-head"><span class="eyebrow">Auf diesem Bildschirm</span><span class="r">${here.length || ''}</span></div>
-              <div class="comp-wins">${here.length ? here.map((w) => `<button class="comp-win" data-act="win-focus" data-h="${w.h}">${S.winIcons[w.path] ? `<img src="${S.winIcons[w.path]}" alt="">` : '<span class="ph"></span>'}<span class="t">${esc(w.title)}</span><span class="x" data-act="cw-close" data-h="${w.h}" title="Schließen">${I.x}</span></button>`).join('')
+              <div class="comp-wins">${here.length ? here.map((w) => `<button class="comp-win${w.attention ? ' attention' : ''}" data-act="win-focus" data-h="${w.h}">${S.winIcons[w.path] ? `<img src="${S.winIcons[w.path]}" alt="">` : '<span class="ph"></span>'}<span class="t">${esc(cleanTitle(w.title))}</span>${w.badge ? `<span class="chip-badge static">${w.badge > 99 ? '99+' : w.badge}</span>` : ''}<span class="x" data-act="cw-close" data-h="${w.h}" title="Schließen">${I.x}</span></button>`).join('')
                 : '<div class="muted" style="font-size:13px;line-height:1.6">Hier ist gerade nichts geöffnet. Starte etwas aus dem Schnellstart – es landet direkt auf diesem Bildschirm.</div>'}</div>
             </section>
-            ${S.notif && S.notif.items.length ? `<section class="panel widget" style="gap:8px">
+            ${S.notif && (S.notif.items.length || (S.notif.live || []).length) ? `<section class="panel widget" style="gap:8px">
               <div class="widget-head"><span class="eyebrow">Benachrichtigungen</span><span class="r">${S.notif.unread ? S.notif.unread + ' neu' : ''}</span></div>
-              ${S.notif.items.slice(0, 4).map((n) => notifRow(n, true)).join('')}
+              ${(S.notif.live || []).slice(0, 3).map((w) => liveRow(w, true)).join('')}
+              ${S.notif.items.slice(0, Math.max(0, 4 - (S.notif.live || []).length)).map((n) => notifRow(n, true)).join('')}
             </section>` : ''}
             ${sys ? `<section class="panel widget" style="gap:12px">
               <div class="widget-head"><span class="eyebrow">System</span></div>
@@ -228,12 +229,13 @@
     },
   });
 
+  window.refreshCompanion = () => refresh();
   let lastKey = '';
   async function refresh() {
     const list = await gx.windows().catch(() => null);
     let changed = false;
     if (list) {
-      const key = JSON.stringify(list.map((w) => [w.h, w.title, w.mon]));
+      const key = JSON.stringify(list.map((w) => [w.h, w.title, w.mon, w.attention, w.badge]));
       changed = key !== lastKey;
       lastKey = key;
       wins = list;
