@@ -44,6 +44,9 @@ const I = {
   moon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
   lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   restart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/></svg>',
+  bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>',
+  chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/></svg>',
+  chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M5 6l6 6-6 6"/></svg>',
   crest: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M20 2 L36 9 V20 C36 29 29 35 20 38 C11 35 4 29 4 20 V9 Z" stroke="#d6b268" stroke-width="1.5"/><path d="M20 7 L31 12 V20 C31 26.5 26.5 31 20 33.5 C13.5 31 9 26.5 9 20 V12 Z" fill="#1b1712" stroke="#6e5a32"/><path d="M20 12 L24 20 L20 28 L16 20 Z" fill="#d6b268"/></svg>',
   goldFolder: '<svg width="52" height="44" viewBox="0 0 24 20" aria-hidden="true"><path d="M1 3a2 2 0 0 1 2-2h5l2 2h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z" fill="#3a2f1c" stroke="#a8853f" stroke-width=".8"/><path d="M1 7h22v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z" fill="#4e3e22" stroke="#d6b268" stroke-width=".8"/></svg>',
 };
@@ -156,7 +159,9 @@ function quickIcon(t) {
 /* ───────── Seitenleiste ───────── */
 function renderSide() {
   const st = S.state;
-  const nav = (key, label, icon, extra = '') => `<button class="nav${S.view === key ? ' active' : ''}" data-act="nav" data-view="${key}">${icon}${label}${extra}</button>`;
+  const nav = (key, label, icon, extra = '') => `<button class="nav${S.view === key ? ' active' : ''}" data-act="nav" data-view="${key}" title="${esc(label)}">${icon}<span class="lbl">${label}</span>${extra}</button>`;
+  const collapsed = st && st.config.sideCollapsed;
+  document.getElementById('app').classList.toggle('side-collapsed', !!collapsed);
   const inboxCount = S.inbox ? S.inbox.items.filter((f) => Date.now() - f.mtime < 3 * 864e5).length : 0;
   $('#side').innerHTML = `
     <div class="brand">${I.crest}<div style="min-width:0"><div class="brand-name">${esc(ownerName() || 'Meine')}</div><div class="brand-sub">Bibliothek</div></div></div>
@@ -168,7 +173,8 @@ function renderSide() {
     <div class="side-label gap">Ablage</div>
     ${nav('inbox', 'Eingangskorb', I.inbox, inboxCount ? `<span class="badge">${inboxCount}</span>` : '')}
     ${st && (st.config.quickTiles || []).length ? `<div class="side-label gap">Schnellstart</div>
-    <div class="side-quick">${st.config.quickTiles.map((t, i) => `<button class="nav quick-nav" data-act="side-tile" data-i="${i}" title="${esc(t.type === 'web' ? t.url : t.name)}"><span class="sq-ic">${quickIcon(t)}</span><span class="sq-t">${esc(t.name)}</span></button>`).join('')}</div>` : '<div class="side-spacer"></div>'}
+    <div class="side-quick">${st.config.quickTiles.map((t, i) => `<button class="nav quick-nav" data-act="side-tile" data-i="${i}" title="${esc(t.name)}"><span class="sq-ic">${quickIcon(t)}</span><span class="sq-t">${esc(t.name)}</span></button>`).join('')}</div>` : '<div class="side-spacer"></div>'}
+    <button class="nav side-toggle" data-act="side-toggle" title="${collapsed ? 'Leiste ausklappen' : 'Leiste einklappen'}">${collapsed ? I.chevR : I.chevL}<span class="lbl">Einklappen</span></button>
     ${nav('settings', 'Einstellungen', I.gear)}
     <div class="profile">
       <div class="avatar">${esc((ownerName() || (st ? st.user : '?')).charAt(0).toUpperCase())}</div>
@@ -191,6 +197,7 @@ function renderTop() {
     <div class="tray">
       <button class="tray-btn" data-act="vol-pop" aria-label="Lautstärke">${v && v.mute ? I.mute : I.vol}${v ? v.vol : ''}</button>
       <button class="tray-btn" data-act="tool" data-key="network" aria-label="Netzwerk">${I.wifi}</button>
+      <button class="tray-btn bell" data-act="notif-pop" aria-label="Benachrichtigungen">${I.bell}${S.notif && S.notif.unread ? `<span class="bell-badge">${S.notif.unread > 9 ? '9+' : S.notif.unread}</span>` : ''}</button>
       <div class="tray-sep"></div>
       <button class="tray-btn" data-act="power-pop" aria-label="Ein/Aus">${I.power}</button>
     </div>
@@ -391,9 +398,9 @@ function renderFolders() {
         <div class="crumbs" style="margin:0;flex-grow:1">${crumbs}</div>
         ${S.folderPath ? `<button class="btn small quiet" data-act="open-path" data-path="${esc(S.folderPath)}">Im Explorer öffnen</button>` : ''}
       </div>
-      <div class="file-grid">${items === null ? '<div class="muted">Lädt …</div>' : items.length ? items.map((f, i) => `<button class="file" data-act="file-open" data-i="${i}" title="${esc(f.name)}">
-        <span class="fi" data-icon="${i}">${f.isDir ? I.goldFolder : IMG_EXT.test(f.name) ? `<img class="thumb" src="${esc(f.url)}" loading="lazy" alt="">` : ''}</span>
-        <span class="fn">${esc(f.name)}</span></button>`).join('') : '<div class="muted">Dieser Ordner ist leer.</div>'}</div>
+      <div class="file-grid">${items === null ? '<div class="muted">Lädt …</div>' : items.length ? items.map((f, i) => `<div class="file" role="button" tabindex="0" draggable="true" data-drag="${esc(f.path)}" data-act="file-open" data-i="${i}" title="${esc(f.name)}${f.isDir ? '' : ' – zum Teilen in eine App ziehen'}">
+        <span class="fi" data-icon="${i}">${f.isDir ? I.goldFolder : IMG_EXT.test(f.name) ? `<img class="thumb" src="${esc(f.url)}" loading="lazy" alt="" draggable="false">` : ''}</span>
+        <span class="fn">${esc(f.name)}</span></div>`).join('') : '<div class="muted">Dieser Ordner ist leer.</div>'}</div>
     </section></div>`;
 }
 
@@ -423,7 +430,7 @@ function renderInbox() {
   $('#view').innerHTML = `
     <div class="page-head"><div><h1>Eingangskorb</h1><div class="sub">Neue Downloads – mit einem Klick an den richtigen Ort.</div></div><span class="grow"></span>
       ${ib ? `<button class="btn small quiet" data-act="open-path" data-path="${esc(ib.dir)}">Downloads öffnen</button>` : ''}</div>
-    <section class="panel inbox-list">${items.length ? items.map((f, i) => `<div class="inbox-item">
+    <section class="panel inbox-list">${items.length ? items.map((f, i) => `<div class="inbox-item" draggable="true" data-drag="${esc(f.path)}" title="Zum Teilen in eine App ziehen">
       <span class="fi" data-iicon="${i}">${IMG_EXT.test(f.name) ? `<img class="thumb" src="${esc(f.url)}" loading="lazy" alt="">` : ''}</span>
       <div class="info"><div class="nm">${esc(f.name)}</div><div class="meta">${fmtSize(f.size)} · ${fmtWhen(f.mtime)}</div></div>
       <span class="cat">${esc(f.cat)}</span>
@@ -802,7 +809,7 @@ function popover(anchorOrPoint, html, alignRight) {
   if (f) f.focus();
   return el;
 }
-document.addEventListener('mousedown', (e) => { if (!e.target.closest('.popover') && !e.target.closest('[data-act="vol-pop"],[data-act="power-pop"]')) closePopover(); });
+document.addEventListener('mousedown', (e) => { if (!e.target.closest('.popover') && !e.target.closest('[data-act="vol-pop"],[data-act="power-pop"],[data-act="notif-pop"]')) closePopover(); });
 
 function volPopover(anchor) {
   const v = S.vol || { vol: 50, mute: false };
@@ -822,6 +829,33 @@ function volPopover(anchor) {
     t = setTimeout(async () => { S.vol = await gx.volume('set', +r.value).catch(() => S.vol); renderTop(); }, 60);
   });
   el.querySelector('#pm').onclick = async () => { S.vol = await act(gx.volume('mute', !v.mute)) || S.vol; renderTop(); closePopover(); };
+}
+
+/* Benachrichtigungen */
+function notifRow(n, compact) {
+  const ic = n.icon ? `<span class="mono">${esc(n.app.charAt(0))}</span><img src="${esc(n.icon)}" data-srcs="${attr([n.icon])}" alt="">` : `<span class="mono">${esc(n.app.charAt(0))}</span>`;
+  return `<button class="notif${n.unread ? ' unread' : ''}${compact ? ' compact' : ''}" data-act="notif-open" data-app="${esc(n.app)}">
+    <span class="n-ic">${ic}</span>
+    <span class="n-body"><span class="n-head"><b>${esc(n.app)}</b><span>${esc(fmtAgo(n.time))}</span></span>
+    <span class="n-title">${esc(n.title)}</span>${n.body ? `<span class="n-text">${esc(n.body)}</span>` : ''}</span></button>`;
+}
+function fmtAgo(ts) {
+  if (!ts) return '';
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'gerade eben';
+  if (m < 60) return 'vor ' + m + ' Min.';
+  const h = Math.round(m / 60);
+  if (h < 24) return 'vor ' + h + ' Std.';
+  return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ', ' + new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+function notifPopover(anchor) {
+  const N = S.notif || { items: [] };
+  popover(anchor, `<div class="notif-pop">
+    <div class="notif-pop-head"><span class="eyebrow">Benachrichtigungen</span><span class="muted" style="margin-left:auto;font-size:11.5px">${N.items.length ? N.items.length + ' zuletzt' : ''}</span></div>
+    <div class="notif-list">${N.error ? `<div class="muted" style="padding:16px;line-height:1.5">${esc(N.error)}</div>` : ''}
+      ${N.items.length ? N.items.map((n) => notifRow(n)).join('') : N.error ? '' : '<div class="muted" style="padding:20px;line-height:1.6">Keine Benachrichtigungen.<br><span style="font-size:11.5px">Hier erscheint, was Apps wie WhatsApp, Discord oder Battle.net an Windows melden.</span></div>'}</div>
+  </div>`, true);
+  if (N.unread) gx.notifSeen().catch(() => {});
 }
 
 function powerPopover(anchor) {
@@ -876,6 +910,7 @@ const ACTIONS = {
   close: () => closeOverlay(),
   search: () => openSearch(),
   filter: (d) => { S.gameFilter = d.f; renderView(); },
+  'side-toggle': () => act(gx.setConfig({ sideCollapsed: !S.state.config.sideCollapsed })),
   'side-tile': (d) => { const t = (S.state.config.quickTiles || [])[+d.i]; if (t) act(gx.openTile(t)); },
   pfilter: (d) => { S.progFilter = d.f; renderView(); },
   'cat-toggle': (d) => { S.openCats = Object.assign({}, S.openCats, { [d.k]: !(S.openCats || {})[d.k] }); renderView(); },
@@ -899,6 +934,8 @@ const ACTIONS = {
   'toggle-hidden': () => { S.showHidden = !S.showHidden; render(); },
   rescan: () => { act(gx.rescan(), 'Bibliothek wird neu eingelesen …'); },
   'vol-pop': (_d, el) => volPopover(el),
+  'notif-pop': (_d, el) => notifPopover(el),
+  'notif-open': (d) => { closePopover(); act(gx.notifOpen(d.app)); },
   'power-pop': (_d, el) => powerPopover(el),
   tool: (d) => { closePopover(); act(gx.tool(d.key)); },
   'win-focus': (d) => act(gx.focusWindow(+d.h)),
@@ -984,6 +1021,18 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation();
   fn(el.dataset, el);
+});
+
+/* Dateien in andere Programme ziehen (WhatsApp, Discord, Mail …) */
+document.addEventListener('dragstart', (e) => {
+  const el = e.target.closest && e.target.closest('[data-drag]');
+  if (!el) return;
+  e.preventDefault();
+  gx.startDrag(el.dataset.drag);
+});
+// Elemente mit role="button" per Tastatur auslösbar machen
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"]')) { e.preventDefault(); e.target.click(); }
 });
 
 /* ───────── Darstellung ───────── */
@@ -1149,6 +1198,11 @@ gx.on('state', (st) => {
   if (reopenId && isDetail) { const id = reopenId; reopenId = null; openDetail(id); }
 });
 gx.on('toast', (t) => toast(t.text, t.kind));
+gx.on('notifications', (n) => {
+  S.notif = n;
+  if (IS_COMPANION) { if (window.renderCompanion) window.renderCompanion(); return; }
+  renderTop();
+});
 gx.on('winkey', () => { if (IS_COMPANION) return; closePopover(); refreshWindows(); });
 gx.on('inbox-changed', () => { if (!IS_COMPANION) loadInbox(); });
 gx.on('windows', () => { if (IS_COMPANION) return; refreshWindows(); refreshVolume(); });
@@ -1161,6 +1215,7 @@ if (!IS_COMPANION) (async function init() {
   refreshSystem();
   refreshVolume();
   refreshWindows();
+  gx.notifications().then((n) => { S.notif = n; renderTop(); }).catch(() => {});
   setInterval(refreshSystem, 2500);
   setInterval(() => { if (document.hasFocus()) refreshWindows(); }, 4000);
   setInterval(renderTop, 15000);

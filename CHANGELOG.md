@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.8 – Benachrichtigungen & Teilen
+- 🔔 Benachrichtigungen von WhatsApp, Discord, Battle.net & Co. – Glocke mit Zähler, Klick öffnet die App; die neuesten auch auf dem Zweitbildschirm
+- Dateien aus „Ordner“ und dem Eingangskorb per Drag & Drop in andere Programme ziehen (WhatsApp, Discord, Mail …)
+- Seitenleiste einklappbar – nur Icons, Name beim Drüberfahren
+
 ## 0.7.5
 - Fehler behoben: <kbd>Win</kbd> + <kbd>Tab</kbd> holte die Zweitbildschirm-Seite nicht nach vorne, solange ein Spiel den Fokus hatte
 

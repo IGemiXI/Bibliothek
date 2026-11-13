@@ -44,8 +44,12 @@ contextBridge.exposeInMainWorld('gx', {
   openUrl: (url, displayId) => call('openUrl', url, displayId),
   openTile: (tile, displayId) => call('openTile', tile, displayId),
   cornerHit: () => ipcRenderer.send('corner-hit'),
+  startDrag: (p) => ipcRenderer.send('start-drag', p),
+  notifications: () => call('notifications'),
+  notifSeen: () => call('notifSeen'),
+  notifOpen: (app) => call('notifOpen', app),
   on: (channel, fn) => {
-    const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey'];
+    const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey', 'notifications'];
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => fn(data));
   },

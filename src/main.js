@@ -15,6 +15,7 @@ const worker = helper.worker;
 const { scanGames, wowLastCharacter } = require('./lib/games');
 const { scanPrograms, startMenuRoots, categorize, CATEGORY_LABELS } = require('./lib/programs');
 const Art = require('./lib/art');
+const Notif = require('./lib/notifications');
 
 const IS_SHELL_LAUNCH = process.argv.includes('--bibliothek-shell');
 
@@ -421,7 +422,7 @@ function fullState() {
     scannedAt: cache.scannedAt,
     scanning,
     config: {
-      ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId,
+      ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId, sideCollapsed: !!config.sideCollapsed,
       hasSgdbKey: !!config.sgdbKey, companion: config.companion, quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
       startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
       shortcut: config.shortcut, folders: config.folders, customTiles: config.customTiles,
@@ -1076,6 +1077,94 @@ handle('openTile', async (tile, displayId) => {
 
 ipcMain.on('corner-hit', () => bringToFront());
 
+/* ───── Benachrichtigungen (WhatsApp, Discord, Battle.net …) ───── */
+let notifs = { items: [], error: null };
+function progForApp(app) {
+  const a = String(app || '').toLowerCase();
+  if (!a) return null;
+  return cache.programs.find((p) => p.name.toLowerCase() === a)
+    || cache.programs.find((p) => p.name.toLowerCase().startsWith(a) || a.startsWith(p.name.toLowerCase()))
+    || null;
+}
+function notifPayload() {
+  const seen = config.notifSeen || 0;
+  const items = notifs.items.slice(0, 40).map((n) => {
+    const p = progForApp(n.app);
+    const v = p ? programView(p) : null;
+    return Object.assign({}, n, { icon: v ? v.icon : null, programId: p ? p.id : null, unread: n.time > seen });
+  });
+  return { items, unread: items.filter((n) => n.unread).length, error: notifs.error };
+}
+async function pollNotifications(force) {
+  if (process.platform !== 'win32') return;
+  try {
+    const list = await Notif.readNotifications(60, force);
+    if (!list) return;
+    notifs = { items: list, error: null };
+  } catch (e) {
+    const msg = /Cannot find module/.test(e.message) ? 'Benachrichtigungen brauchen ein Update – bitte einmal START.bat ausführen.' : 'Benachrichtigungen konnten nicht gelesen werden.';
+    if (notifs.error !== msg) logStart('Benachrichtigungen: ' + e.message);
+    notifs = { items: notifs.items, error: msg };
+  }
+  send('notifications', notifPayload());
+}
+handle('notifications', () => notifPayload());
+handle('notifSeen', () => { config.notifSeen = Date.now(); saveConfig(); send('notifications', notifPayload()); return true; });
+handle('notifOpen', async (app) => {
+  const p = progForApp(app);
+  const wins = await windowsWithMon();
+  const w = (p && p.target && wins.find((x) => x.path && U.normPath(x.path) === U.normPath(p.target)))
+    || wins.find((x) => x.title && x.title.toLowerCase().includes(String(app).toLowerCase()));
+  if (w) { await helper.safe('focus', { h: w.h }); return true; }
+  if (p) {
+    if (p.kind === 'uwp') spawn('explorer.exe', ['shell:AppsFolder\\' + p.appId], { detached: true, stdio: 'ignore' }).unref();
+    else { const err = await shell.openPath(p.lnk); if (err) throw new Error(err); }
+    return true;
+  }
+  throw new Error(app + ' wurde nicht gefunden.');
+});
+
+/* ───── Dateien aus der Bibliothek in andere Programme ziehen (z. B. WhatsApp, Discord) ───── */
+function makePng(size) {
+  // Kleines goldenes Datei-Symbol als PNG (Ersatz, falls kein Datei-Icon im Speicher ist)
+  const zlib = require('zlib');
+  const raw = Buffer.alloc((size * 4 + 1) * size);
+  for (let y = 0; y < size; y++) {
+    raw[y * (size * 4 + 1)] = 0;
+    for (let x = 0; x < size; x++) {
+      const i = y * (size * 4 + 1) + 1 + x * 4;
+      const inside = x > size * 0.18 && x < size * 0.82 && y > size * 0.08 && y < size * 0.92;
+      const fold = x > size * 0.6 && y < size * 0.3 && (size * 0.82 - x) < (y - size * 0.08) * 1.0 + 1;
+      if (inside && !(x > size * 0.6 && y < size * 0.3 && !fold)) { raw[i] = 214; raw[i + 1] = 178; raw[i + 2] = 104; raw[i + 3] = 255; }
+    }
+  }
+  const crcTable = [];
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c >>> 0; }
+  const crc = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4); ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+let fallbackDragIcon = null;
+function dragIconFor(p) {
+  const ext = path.extname(p).toLowerCase();
+  const key = ['.exe', '.lnk', '.ico', '.url', ''].includes(ext) ? 'p:' + p.toLowerCase() : 'e:' + ext;
+  const url = iconCache.get(key);
+  if (url) { const img = nativeImage.createFromDataURL(url); if (!img.isEmpty()) return img.resize({ width: 48, height: 48 }); }
+  if (!fallbackDragIcon) fallbackDragIcon = nativeImage.createFromBuffer(makePng(48));
+  return fallbackDragIcon;
+}
+ipcMain.on('start-drag', (e, p) => {
+  if (!p || !U.exists(p)) return;
+  try { e.sender.startDrag({ file: p, icon: dragIconFor(p) }); } catch (err) { console.error('Ziehen fehlgeschlagen', err.message); }
+});
+
 /* ─────────────────────────── Start ─────────────────────────── */
 
 app.whenReady().then(async () => {
@@ -1098,6 +1187,8 @@ app.whenReady().then(async () => {
   // Erst aus dem Zwischenspeicher anzeigen (sofort da), dann im Hintergrund frisch einlesen
   setTimeout(() => { rescan().then(setupWatchers); }, 800);
   setInterval(pollRunning, POLL_SEC * 1000);
+  setTimeout(() => pollNotifications(true), 3000);
+  setInterval(() => pollNotifications(false), 4000);
   const onDisplays = U.debounce(() => { moveToDisplay(); pushState(); }, 800);
   screen.on('display-added', onDisplays);
   screen.on('display-removed', onDisplays);

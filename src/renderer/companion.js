@@ -97,6 +97,10 @@
               <div class="comp-wins">${here.length ? here.map((w) => `<button class="comp-win" data-act="win-focus" data-h="${w.h}">${S.winIcons[w.path] ? `<img src="${S.winIcons[w.path]}" alt="">` : '<span class="ph"></span>'}<span class="t">${esc(w.title)}</span><span class="x" data-act="cw-close" data-h="${w.h}" title="Schließen">${I.x}</span></button>`).join('')
                 : '<div class="muted" style="font-size:13px;line-height:1.6">Hier ist gerade nichts geöffnet. Starte etwas aus dem Schnellstart – es landet direkt auf diesem Bildschirm.</div>'}</div>
             </section>
+            ${S.notif && S.notif.items.length ? `<section class="panel widget" style="gap:8px">
+              <div class="widget-head"><span class="eyebrow">Benachrichtigungen</span><span class="r">${S.notif.unread ? S.notif.unread + ' neu' : ''}</span></div>
+              ${S.notif.items.slice(0, 4).map((n) => notifRow(n, true)).join('')}
+            </section>` : ''}
             ${sys ? `<section class="panel widget" style="gap:12px">
               <div class="widget-head"><span class="eyebrow">System</span></div>
               ${[['CPU', sys.cpu + ' %', sys.cpu], sys.gpu ? ['GPU', sys.gpu.util + ' % · ' + sys.gpu.temp + ' °C', sys.gpu.util] : null, ['RAM', (sys.ramUsed / 1073741824).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' / ' + Math.round(sys.ramTotal / 1073741824) + ' GB', 100 * sys.ramUsed / sys.ramTotal]].filter(Boolean).map(([l, v, p]) => `<div><div class="meter-row"><span>${l}</span><span>${v}</span></div><div class="meter"><div style="width:${Math.min(100, p)}%"></div></div></div>`).join('')}
@@ -261,6 +265,7 @@
 
   (async function init() {
     S.state = await gx.state();
+    S.notif = await gx.notifications().catch(() => null);
     render();
     refresh();
     setInterval(refresh, 3000);
