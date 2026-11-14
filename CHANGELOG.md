@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.8.3 – WoW wird zuverlässiger gefunden
+- World of Warcraft wird jetzt auch über die Battle.net-Datenbank und auf allen Laufwerken (D:, E: …) gesucht – nicht nur über die Registry
+- Neues Protokoll `%APPDATA%\Bibliothek\scan.log`: zeigt nach „Neu einlesen“, was wo gefunden wurde
+
 ## 0.8.2 – Im Hintergrund
 - Neuer Pfeil oben rechts (wie in der Windows-Taskleiste): zeigt alle Apps, die im Hintergrund laufen – Klick öffnet, Rechtsklick beendet
 - „Neu erkannt“ auf der Startseite wächst mit, Einträge überlappen nicht mehr

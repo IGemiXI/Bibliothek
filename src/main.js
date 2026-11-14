@@ -517,7 +517,8 @@ async function rescan() {
   scanning = true;
   pushState();
   try {
-    const { games, sources } = await scanGames(worker);
+    const { games, sources, log } = await scanGames(worker);
+    try { fs.writeFileSync(path.join(DATA, 'scan.log'), new Date().toLocaleString('de-DE') + '\n' + (log || []).join('\n') + '\n'); } catch {}
     const startApps = process.platform === 'win32' ? await worker.safe('startApps', {}, [], 30000) : [];
     const programs = scanPrograms({
       readShortcut: (p) => shell.readShortcutLink(p),

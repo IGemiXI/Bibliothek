@@ -105,9 +105,26 @@ const WOW_FLAVORS = {
   _classic_: 'World of Warcraft Classic',
   _classic_era_: 'WoW Classic Era',
   _anniversary_: 'WoW Classic Anniversary',
+  _forever_: 'World of Warcraft Forever',
 };
 // Bekannte Battle.net-Startcodes (für „launch <Code>“). Unbekannte Spiele öffnen Battle.net.
 const BNET_CODES = { fenris: 'Fen', diablo4: 'Fen', hs_beta: 'WTCG', hearthstone: 'WTCG', prometheus: 'Pro', overwatch: 'Pro', osi: 'OSI', diablo3: 'D3', s2: 'S2', s1: 'S1', w3: 'W3' };
+
+const scanLog = [];
+/** Installationspfade aus der Battle.net-Datenbank (product.db, Protobuf) – grob als Text ausgelesen */
+function bnetDbPaths() {
+  const out = new Set();
+  for (const f of [path.join(PD, 'Battle.net', 'Agent', 'product.db'), path.join(PD, 'Battle.net', 'Agent', 'product.db.old')]) {
+    let buf;
+    try { buf = fs.readFileSync(f); } catch { continue; }
+    const txt = buf.toString('latin1');
+    for (const m of txt.matchAll(/[A-Za-z]:[\\/][^\x00-\x1f"<>|?*]{1,200}/g)) out.add(m[0].trim());
+  }
+  return [...out];
+}
+function hasFlavors(dir) {
+  try { return U.listDir(dir).some((e) => e.isDirectory() && /^_.+_$/.test(e.name)); } catch { return false; }
+}
 
 function prettyFlavor(folder) {
   const inner = folder.replace(/^_+|_+$/g, '').split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -179,8 +196,24 @@ async function scanBattlenet(helper, uninstall) {
       art: { cover: [], hero: [], logo: [] },
     });
   }
-  // Standardpfad prüfen, falls der Registry-Eintrag fehlt
-  for (const p of ['C:\\Program Files (x86)\\World of Warcraft', 'C:\\Program Files\\World of Warcraft']) if (U.exists(p)) wowRoots.add(p);
+  // WoW-Ordner auch ohne Registry-Eintrag finden: Battle.net-Datenbank + übliche Orte auf allen Laufwerken
+  const addRoot = (p) => {
+    if (!p) return;
+    let d = path.normalize(String(p).replace(/\//g, '\\').replace(/[\\]+$/, ''));
+    if (/^_.+_$/.test(path.basename(d))) d = path.dirname(d);
+    if (U.exists(d)) wowRoots.add(d);
+  };
+  for (const p of bnetDbPaths()) if (/warcraft|wow/i.test(p) || hasFlavors(p)) addRoot(p);
+  for (const L of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
+    const drive = L + ':\\';
+    if (!U.exists(drive)) continue;
+    for (const sub of ['', 'Program Files (x86)', 'Program Files', 'Games', 'Spiele', 'Blizzard', 'Battle.net', 'Program Files (x86)\\Blizzard', 'Games\\Blizzard']) {
+      for (const n of ['World of Warcraft', 'World of Warcraft Forever', 'WoW', 'WoW Forever']) addRoot(path.join(drive, sub, n));
+    }
+  }
+  scanLog.push('Blizzard-Einträge: ' + (entries.map((e) => e.DisplayName + ' → ' + (e.InstallLocation || '?')).join(' | ') || 'keine'));
+  scanLog.push('Battle.net: ' + (bnetExe || 'nicht gefunden'));
+  scanLog.push('WoW-Ordner: ' + ([...wowRoots].join(' | ') || 'keine'));
 
   const seen = new Set();
   for (const root of wowRoots) {
@@ -188,6 +221,7 @@ async function scanBattlenet(helper, uninstall) {
       if (!f.isDirectory() || !/^_.+_$/.test(f.name) || /ptr|beta|test/i.test(f.name)) continue;
       const dir = path.join(root, f.name);
       const exe = wowExe(dir);
+      scanLog.push('  ' + dir + ' → ' + (exe ? path.basename(exe) : 'kein Wow*.exe (Installation noch nicht fertig?)'));
       if (!exe || seen.has(U.normPath(dir))) continue;
       seen.add(U.normPath(dir));
       const char = wowLastCharacter(dir);
@@ -284,6 +318,7 @@ async function scanGog(helper) {
 /* ─────────────────────────── Gesamt-Scan ─────────────────────────── */
 
 async function scanGames(helper) {
+  scanLog.length = 0;
   const uninstall = await helper.safe('uninstall', {}, [], 30000);
   const results = await Promise.allSettled([scanSteam(helper), scanBattlenet(helper, uninstall), Promise.resolve(scanEpic()), Promise.resolve(scanRiot()), scanGog(helper)]);
   const sources = {};
@@ -295,7 +330,9 @@ async function scanGames(helper) {
   });
   const seen = new Set();
   const games = all.filter((g) => (seen.has(g.id) ? false : seen.add(g.id)));
-  return { games, sources };
+  results.forEach((r, i) => { if (r.status !== 'fulfilled') scanLog.push('Fehler ' + names[i] + ': ' + (r.reason && r.reason.message || r.reason)); });
+  scanLog.unshift('Gefunden: ' + names.map((n) => n + ' ' + sources[n]).join(', '));
+  return { games, sources, log: scanLog.slice() };
 }
 
 module.exports = { scanGames, wowLastCharacter, steamLibraries };
