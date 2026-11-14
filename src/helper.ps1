@@ -540,6 +540,46 @@ while ($true) {
       'taskbarGuard' { [GxWin]::Guard([bool]$a.on); $data = $true }
       'taskbar'   { $r = -1; if ($null -ne $a.restore) { $r = [int]$a.restore }; $data = [GxWin]::Taskbar([bool]$a.show, $r) }
       'procs'     { $data = @(Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }) }
+      'trayApps'  {
+        $kf = @{
+          '{6D809377-6AF0-444B-8957-A3773F02200E}' = $env:ProgramFiles
+          '{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}' = ${env:ProgramFiles(x86)}
+          '{F38BF404-1D43-42F2-9305-67DE0B28FC23}' = $env:windir
+          '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}' = "$env:windir\System32"
+          '{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}' = "$env:windir\SysWOW64"
+          '{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}' = $env:LOCALAPPDATA
+          '{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}' = $env:APPDATA
+          '{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}' = "$env:LOCALAPPDATA\Programs"
+        }
+        $tray = @{}
+        $root = 'HKCU:\Control Panel\NotifyIconSettings'
+        $hasRoot = Test-Path $root
+        if ($hasRoot) {
+          foreach ($k in (Get-ChildItem $root -ErrorAction SilentlyContinue)) {
+            $pp = Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue
+            $exe = [string]$pp.ExecutablePath
+            if (-not $exe) { continue }
+            foreach ($g in $kf.Keys) { if ($exe.StartsWith($g, 'OrdinalIgnoreCase')) { $exe = $kf[$g] + $exe.Substring($g.Length) } }
+            $tray[$exe.ToLower()] = @{ tip = [string]$pp.InitialTooltip; promoted = [int]$pp.IsPromoted }
+          }
+        }
+        $res = @{}
+        foreach ($pr in (Get-Process -ErrorAction SilentlyContinue)) {
+          $path = $null; try { $path = $pr.Path } catch {}
+          if (-not $path) { continue }
+          $key = $path.ToLower()
+          if ($hasRoot -and -not $tray.ContainsKey($key)) { continue }
+          if (-not $res.ContainsKey($key)) {
+            $desc = $null; try { $desc = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($path).FileDescription } catch {}
+            $t = $tray[$key]
+            $res[$key] = @{ path = $path; pids = @(); win = $false; desc = $desc; tip = $(if ($t) { $t.tip } else { $null }); promoted = $(if ($t) { $t.promoted } else { 0 }) }
+          }
+          $res[$key].pids += $pr.Id
+          if ($pr.MainWindowHandle -ne [IntPtr]::Zero) { $res[$key].win = $true }
+        }
+        $data = @{ tray = $hasRoot; apps = @($res.Values) }
+      }
+      'killPids'  { foreach ($i in $a.pids) { Stop-Process -Id ([int]$i) -Force -ErrorAction SilentlyContinue }; $data = $true }
       'windows'   {
         $res = @()
         foreach ($w in [GxWin]::List([uint32]$a.selfPid)) {

@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.8.2 – Im Hintergrund
+- Neuer Pfeil oben rechts (wie in der Windows-Taskleiste): zeigt alle Apps, die im Hintergrund laufen – Klick öffnet, Rechtsklick beendet
+- „Neu erkannt“ auf der Startseite wächst mit, Einträge überlappen nicht mehr
+
 ## 0.8.1 – Blinken & Zähler
 - Fenster, die in der Taskleiste blinken würden (z. B. Steam orange, Discord bei Direktnachrichten), leuchten in der Bibliothek orange – in „Geöffnet“, auf dem Zweitbildschirm, im Schnellstart und unter „Wartet auf dich“ in der Glocke
 - Zahlen im Fenstertitel (z. B. „(3) YouTube“) erscheinen als rotes Abzeichen

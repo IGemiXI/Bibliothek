@@ -1098,6 +1098,43 @@ handle('openTile', async (tile, displayId) => {
 
 ipcMain.on('corner-hit', () => bringToFront());
 
+/* ───── Im Hintergrund (wie der Pfeil unten rechts in der Taskleiste) ───── */
+let trayLast = [];
+const TRAY_SKIP = /\\(explorer|electron|bibliothek|svchost|dllhost|conhost|runtimebroker|sihost|ctfmon|taskhostw|searchhost|startmenuexperiencehost|shellexperiencehost|textinputhost|widgets|powershell|pwsh|cmd)\.exe$/i;
+handle('trayApps', async () => {
+  const r = await worker.safe('trayApps', {}, null, 20000);
+  if (!r) return [];
+  const progByPath = (pp) => cache.programs.find((x) => x.target && U.normPath(x.target) === U.normPath(pp));
+  const own = U.normPath(process.execPath);
+  const list = (r.apps || []).filter((a) => a.path && U.normPath(a.path) !== own && !TRAY_SKIP.test(a.path)).map((a) => {
+    const p = progByPath(a.path);
+    // Ohne Taskleisten-Einträge (Windows 10): nur bekannte Programme zeigen
+    if (!r.tray && !p) return null;
+    const tip = String(a.tip || '').split(/\r?\n/)[0].trim();
+    const name = (p && p.name) || (tip && tip.length <= 32 ? tip : '') || (a.desc && a.desc.length <= 32 ? a.desc : '') || path.basename(a.path, path.extname(a.path));
+    return { key: U.normPath(a.path), path: a.path, name, pids: [].concat(a.pids || []), win: !!a.win, promoted: !!a.promoted, icon: p ? programView(p).icon : null, tip: tip || a.desc || '' };
+  }).filter(Boolean).sort((x, y) => (y.promoted - x.promoted) || x.name.localeCompare(y.name, 'de'));
+  trayLast = list;
+  return list;
+});
+handle('trayOpen', async (key) => {
+  const a = trayLast.find((x) => x.key === key);
+  if (!a) throw new Error('Programm läuft nicht mehr');
+  const wins = await windowsWithMon();
+  const w = wins.find((x) => x.path && U.normPath(x.path) === a.key);
+  if (w) { await helper.safe('focus', { h: w.h }); return true; }
+  // Programm noch einmal starten – Tray-Apps (Steam, Discord …) holen dann ihr Fenster nach vorn
+  spawn(a.path, [], { detached: true, stdio: 'ignore', cwd: path.dirname(a.path) }).on('error', () => {}).unref();
+  return true;
+});
+handle('trayQuit', async (key) => {
+  const a = trayLast.find((x) => x.key === key);
+  if (!a) return true;
+  await worker.safe('killPids', { pids: a.pids }, null, 10000);
+  trayLast = trayLast.filter((x) => x !== a);
+  return true;
+});
+
 /* ───── Benachrichtigungen (WhatsApp, Discord, Battle.net …) ───── */
 let notifs = { items: [], error: null };
 function progForApp(app) {

@@ -45,6 +45,7 @@ const I = {
   lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   restart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/></svg>',
   bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>',
+  chevU: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
   chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/></svg>',
   chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M5 6l6 6-6 6"/></svg>',
   crest: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M20 2 L36 9 V20 C36 29 29 35 20 38 C11 35 4 29 4 20 V9 Z" stroke="#d6b268" stroke-width="1.5"/><path d="M20 7 L31 12 V20 C31 26.5 26.5 31 20 33.5 C13.5 31 9 26.5 9 20 V12 Z" fill="#1b1712" stroke="#6e5a32"/><path d="M20 12 L24 20 L20 28 L16 20 Z" fill="#d6b268"/></svg>',
@@ -207,6 +208,7 @@ function renderTop() {
     <button class="search-btn" data-act="search">${I.search}<span class="grow">Einfach lostippen – Spiele, Programme …</span><span class="kbd">Strg K</span></button>
     <div class="wins">${S.wins.length ? '<span class="wins-label">Geöffnet</span>' + winChips : ''}</div>
     <div class="tray">
+      <button class="tray-btn" data-act="tray-pop" aria-label="Im Hintergrund" title="Im Hintergrund geöffnet">${I.chevU}</button>
       <button class="tray-btn" data-act="vol-pop" aria-label="Lautstärke">${v && v.mute ? I.mute : I.vol}${v ? v.vol : ''}</button>
       <button class="tray-btn" data-act="tool" data-key="network" aria-label="Netzwerk">${I.wifi}</button>
       <button class="tray-btn bell" data-act="notif-pop" aria-label="Benachrichtigungen">${I.bell}${S.notif && S.notif.unread ? `<span class="bell-badge">${S.notif.unread > 9 ? '9+' : S.notif.unread}</span>` : ''}</button>
@@ -276,7 +278,7 @@ function renderHome() {
       ${heroHtml}
       <aside class="side-col">
         <div class="panel widget" style="flex-grow:1"><div class="widget-head"><span class="eyebrow">System</span><span class="r">${esc(S.state.computer)}</span></div>${sysHtml}</div>
-        <div class="panel widget" style="height:150px;gap:10px"><div class="widget-head"><span class="eyebrow">Neu erkannt</span><span class="r">automatisch</span></div>${newHtml}</div>
+        <div class="panel widget new-widget"><div class="widget-head"><span class="eyebrow">Neu erkannt</span><span class="r">automatisch</span></div>${newHtml}</div>
       </aside>
     </div>
     <section style="margin-top:22px">
@@ -821,7 +823,7 @@ function popover(anchorOrPoint, html, alignRight) {
   if (f) f.focus();
   return el;
 }
-document.addEventListener('mousedown', (e) => { if (!e.target.closest('.popover') && !e.target.closest('[data-act="vol-pop"],[data-act="power-pop"],[data-act="notif-pop"]')) closePopover(); });
+document.addEventListener('mousedown', (e) => { if (!e.target.closest('.popover') && !e.target.closest('[data-act="vol-pop"],[data-act="power-pop"],[data-act="notif-pop"],[data-act="tray-pop"]')) closePopover(); });
 
 function volPopover(anchor) {
   const v = S.vol || { vol: 50, mute: false };
@@ -879,6 +881,28 @@ function notifPopover(anchor) {
   if (N.unread) gx.notifSeen().catch(() => {});
 }
 
+function trayTile(a) {
+  const ic = a.icon || S.winIcons[a.path];
+  if (!a.icon && a.path && !(a.path in S.winIcons)) {
+    S.winIcons[a.path] = null;
+    gx.fileIcon(a.path).then((u) => { S.winIcons[a.path] = u; const el = document.querySelector(`.tray-app[data-k="${CSS.escape(a.key)}"] .ta-ic`); if (el && u) el.innerHTML = `<img src="${u}" alt="">`; }).catch(() => {});
+  }
+  return `<button class="tray-app" data-act="tray-open" data-k="${esc(a.key)}" title="${esc(a.tip || a.name)}">
+    <span class="ta-ic">${ic ? `<img src="${ic}" alt="">` : `<span class="mono">${esc(a.name.charAt(0))}</span>`}</span>
+    <span class="ta-t">${esc(a.name)}</span>${a.win ? '<span class="ta-dot" title="Hat ein offenes Fenster"></span>' : ''}</button>`;
+}
+function trayFill(list) {
+  const box = document.querySelector('.tray-pop');
+  if (!box) return;
+  box.innerHTML = `<div class="notif-pop-head"><span class="eyebrow">Im Hintergrund</span><span class="muted" style="margin-left:auto;font-size:11.5px">${list.length ? list.length + ' aktiv' : ''}</span></div>
+    ${list.length ? `<div class="tray-grid">${list.map(trayTile).join('')}</div><div class="muted tray-hint">Klick öffnet · Rechtsklick zum Beenden</div>` : '<div class="muted" style="padding:18px 6px;font-size:12.5px;line-height:1.6">Gerade läuft nichts im Hintergrund.</div>'}`;
+}
+async function trayPopover(anchor) {
+  popover(anchor, `<div class="tray-pop"><div class="notif-pop-head"><span class="eyebrow">Im Hintergrund</span></div><div class="muted" style="padding:18px 6px;font-size:12.5px">Wird geladen …</div></div>`, true);
+  try { S.tray = await gx.trayApps(); } catch { S.tray = []; }
+  trayFill(S.tray || []);
+}
+
 function powerPopover(anchor) {
   popover(anchor, `<div class="menu">
     <button data-act="power" data-a="lock">${I.lock}Sperren</button>
@@ -902,6 +926,12 @@ function contextMenu(e, kind, id) {
 document.addEventListener('contextmenu', (e) => {
   const g = e.target.closest('.cover-card[data-id]');
   if (g && g.dataset.act !== 'noop') return contextMenu(e, 'g', g.dataset.id);
+  const ta = e.target.closest('.tray-app[data-k]');
+  if (ta) {
+    e.preventDefault();
+    const k = ta.dataset.k;
+    return popover({ x: e.clientX, y: e.clientY }, `<div class="menu"><button data-act="tray-open" data-k="${esc(k)}">${I.play}Öffnen</button><hr><button class="danger" data-act="tray-quit" data-k="${esc(k)}">${I.x}Beenden</button></div>`);
+  }
   const p = e.target.closest('[data-act="prog"][data-id]');
   if (p) return contextMenu(e, 'p', p.dataset.id);
   e.preventDefault();
@@ -956,6 +986,13 @@ const ACTIONS = {
   rescan: () => { act(gx.rescan(), 'Bibliothek wird neu eingelesen …'); },
   'vol-pop': (_d, el) => volPopover(el),
   'notif-pop': (_d, el) => notifPopover(el),
+  'tray-pop': (_d, el) => trayPopover(el),
+  'tray-open': (d) => { closePopover(); act(gx.trayOpen(d.k)); },
+  'tray-quit': async (d) => {
+    const a = (S.tray || []).find((x) => x.key === d.k);
+    closePopover();
+    if (await act(gx.trayQuit(d.k)) !== null && a) toast(a.name + ' wurde beendet.');
+  },
   'notif-open': (d) => { closePopover(); act(gx.notifOpen(d.app)); },
   'power-pop': (_d, el) => powerPopover(el),
   tool: (d) => { closePopover(); act(gx.tool(d.key)); },

@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld('gx', {
   notifications: () => call('notifications'),
   notifSeen: () => call('notifSeen'),
   notifOpen: (app) => call('notifOpen', app),
+  trayApps: () => call('trayApps'),
+  trayOpen: (k) => call('trayOpen', k),
+  trayQuit: (k) => call('trayQuit', k),
   on: (channel, fn) => {
     const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey', 'notifications'];
     if (!allowed.includes(channel)) return;
