@@ -579,6 +579,14 @@ while ($true) {
         }
         $data = @{ tray = $hasRoot; apps = @($res.Values) }
       }
+      'recycleInfo' {
+        $sh = New-Object -ComObject Shell.Application
+        $bin = $sh.Namespace(10)
+        $n = 0; $size = 0
+        foreach ($it in $bin.Items()) { $n++; try { $size += [int64]$it.ExtendedProperty('System.Size') } catch {} }
+        $data = @{ count = $n; size = $size }
+      }
+      'recycleEmpty' { Clear-RecycleBin -Force -ErrorAction SilentlyContinue; $data = $true }
       'killPids'  { foreach ($i in $a.pids) { Stop-Process -Id ([int]$i) -Force -ErrorAction SilentlyContinue }; $data = $true }
       'windows'   {
         $res = @()

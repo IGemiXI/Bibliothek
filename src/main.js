@@ -560,7 +560,7 @@ function fullState() {
       ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId, sideCollapsed: !!config.sideCollapsed,
       hasSgdbKey: !!config.sgdbKey, companion: config.companion, hud: config.hud !== false, hudPos: config.hudPos || 'tl', quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
       startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
-      shortcut: config.shortcut, folders: config.folders, customTiles: config.customTiles,
+      shortcut: config.shortcut, folders: config.folders, desktopPath: app.getPath('desktop'), customTiles: config.customTiles,
     },
     user: os.userInfo().username,
     computer: os.hostname(),
@@ -934,6 +934,8 @@ const TOOLS = {
   settings: { uri: 'ms-settings:' },
   personalization: { uri: 'ms-settings:personalization' },
   power: { uri: 'ms-settings:powersleep' },
+  recycle: { exe: 'explorer.exe', args: ['shell:RecycleBinFolder'] },
+  thispc: { exe: 'explorer.exe', args: ['shell:MyComputerFolder'] },
 };
 
 function openTool(key) {
@@ -1138,6 +1140,9 @@ handle('listFolder', (dir) => listFolder(dir));
 handle('fileIcon', (p) => fileIcon(p));
 handle('openPath', async (p) => { const err = await shell.openPath(p); if (err) throw new Error(err); return true; });
 handle('showInFolder', (p) => { shell.showItemInFolder(p); setTimeout(applyTaskbar, 2500); return true; });
+handle('recycleInfo', async () => (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 });
+handle('recycleEmpty', async () => { await worker.safe('recycleEmpty', {}, null, 120000); return (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 }; });
+handle('trashItem', async (p) => { await shell.trashItem(p); return true; });
 handle('inbox', () => inbox());
 handle('moveFile', (src, destKey) => moveFile(src, destKey));
 

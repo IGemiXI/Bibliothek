@@ -45,6 +45,9 @@ const I = {
   lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   restart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/></svg>',
   bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>',
+  bin: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
+  pc: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v12H3zM8 20h8M12 16v4"/></svg>',
+  desk: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v11H3zM3 13h18M9 20h6"/></svg>',
   chevU: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
   chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/></svg>',
   chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M5 6l6 6-6 6"/></svg>',
@@ -66,6 +69,8 @@ const TOOLS = [
   ['apps', 'Apps verwalten', 'Installieren, entfernen', 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z'],
   ['printers', 'Drucker', 'Drucker & Scanner', 'M6 9V3h12v6 M6 18H4v-7h16v7h-2 M6 14h12v7H6z'],
   ['storage', 'Speicher', 'Laufwerke, aufräumen', 'M3 12h18 M5 5h14l2 7v7H3v-7z M17 16h.01'],
+  ['recycle', 'Papierkorb', 'Gelöschte Dateien', 'M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6'],
+  ['thispc', 'Dieser PC', 'Laufwerke & Geräte', 'M3 4h18v12H3z M8 20h8 M12 16v4'],
 ];
 
 const SOURCES = [['steam', 'Steam'], ['battlenet', 'Battle.net'], ['epic', 'Epic Games'], ['riot', 'Riot'], ['gog', 'GOG'], ['programs', 'Startmenü-Programme']];
@@ -388,8 +393,14 @@ async function openFolder(p, root) {
   if (S.view === 'folders' && S.folderPath === p) { renderFolders(); loadFileIcons(); }
 }
 
+function loadBin() {
+  if (S.binLoading) return;
+  S.binLoading = true;
+  gx.recycleInfo().then((b) => { S.bin = b; S.binLoading = false; if (S.view === 'folders') renderFolders(); }).catch(() => { S.binLoading = false; });
+}
 function renderFolders() {
   const folders = S.state.config.folders || [];
+  if (!S.bin || Date.now() - (S.binAt || 0) > 15000) { S.binAt = Date.now(); loadBin(); }
   if (!S.folderPath && folders.length) { openFolder(folders[0].path, folders[0].path); return; }
   const root = S.folderRoot || S.folderPath || '';
   const rel = S.folderPath && root && S.folderPath.toLowerCase().startsWith(root.toLowerCase()) ? S.folderPath.slice(root.length).split(/[\\/]/).filter(Boolean) : [];
@@ -405,6 +416,10 @@ function renderFolders() {
       <div class="eyebrow" style="padding:4px 12px 10px">Deine Ordner</div>
       ${folders.map((f, i) => `<button class="folder-item" data-act="folder-root" data-path="${esc(f.path)}" aria-current="${f.path === root}"><span style="color:var(--gold);display:flex">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}</span><span class="t">${esc(f.name)}</span><span class="rm" data-act="folder-remove" data-i="${i}" title="Entfernen">${I.x}</span></button>`).join('')}
       <button class="folder-item" data-act="folder-add" style="color:var(--gold)"><span style="display:flex">${I.plus}</span><span class="t">Ordner hinzufügen</span></button>
+      <div class="eyebrow" style="padding:16px 12px 8px">Windows</div>
+      ${S.state.config.desktopPath && !folders.some((f) => f.path.toLowerCase() === S.state.config.desktopPath.toLowerCase()) ? `<button class="folder-item" data-act="folder-root" data-path="${esc(S.state.config.desktopPath)}" aria-current="${S.state.config.desktopPath === root}"><span style="color:var(--gold);display:flex">${I.desk}</span><span class="t">Desktop</span></button>` : ''}
+      <button class="folder-item" data-act="tool" data-key="thispc"><span style="color:var(--gold);display:flex">${I.pc}</span><span class="t">Dieser PC</span></button>
+      <div class="folder-item bin-item" data-act="tool" data-key="recycle" role="button" tabindex="0" title="Papierkorb öffnen"><span style="color:var(--gold);display:flex">${I.bin}</span><span class="t">Papierkorb</span>${S.binConfirm ? '' : `<span class="bin-n">${S.bin ? (S.bin.count ? S.bin.count : 'leer') : ''}</span>`}${S.bin && S.bin.count ? (S.binConfirm ? `<span class="bin-confirm" data-act="bin-empty">Leeren?</span>` : `<span class="rm bin-empty" data-act="bin-empty" title="Papierkorb leeren">${I.x}</span>`) : ''}</div>
     </aside>
     <section class="panel folder-main">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -940,6 +955,12 @@ function contextMenu(e, kind, id) {
 document.addEventListener('contextmenu', (e) => {
   const g = e.target.closest('.cover-card[data-id]');
   if (g && g.dataset.act !== 'noop') return contextMenu(e, 'g', g.dataset.id);
+  const fe = e.target.closest('.file[data-act="file-open"]');
+  if (fe) {
+    e.preventDefault();
+    const i = fe.dataset.i;
+    return popover({ x: e.clientX, y: e.clientY }, `<div class="menu"><button data-act="file-open" data-i="${i}">${I.play}Öffnen</button><button data-act="file-show" data-i="${i}">${I.folder.replace('<svg ', '<svg width="18" height="18" ')}Im Explorer zeigen</button><hr><button class="danger" data-act="file-trash" data-i="${i}">${I.bin}In den Papierkorb</button></div>`);
+  }
   const ta = e.target.closest('.tray-app[data-k]');
   if (ta) {
     e.preventDefault();
@@ -1077,7 +1098,23 @@ const ACTIONS = {
     openFolder(p, p);
   },
   'folder-remove': (d) => { const folders = (S.state.config.folders || []).filter((_, i) => i !== +d.i); S.folderPath = null; S.folderRoot = null; act(gx.setConfig({ folders })); },
-  'file-open': (d) => { const f = S.folderItems[+d.i]; if (!f) return; if (f.isDir) openFolder(f.path); else act(gx.openPath(f.path)); },
+  'bin-empty': async () => {
+    const n = S.bin && S.bin.count;
+    if (!n) return;
+    // Erst nachfragen – Leeren lässt sich nicht rückgängig machen
+    if (!S.binConfirm) { S.binConfirm = true; renderFolders(); setTimeout(() => { if (S.binConfirm) { S.binConfirm = false; if (S.view === 'folders') renderFolders(); } }, 4000); return; }
+    S.binConfirm = false;
+    const r = await act(gx.recycleEmpty(), 'Papierkorb geleert.');
+    if (r) { S.bin = r; renderFolders(); }
+  },
+  'file-trash': async (d) => {
+    closePopover();
+    const f = (S.folderItems || [])[+d.i];
+    if (!f) return;
+    if (await act(gx.trashItem(f.path), f.name + ' liegt jetzt im Papierkorb.') !== null) { S.binAt = 0; openFolder(S.folderPath); }
+  },
+  'file-show': (d) => { closePopover(); const f = (S.folderItems || [])[+d.i]; if (f) act(gx.showInFolder(f.path)); },
+  'file-open': (d) => { closePopover(); const f = S.folderItems[+d.i]; if (!f) return; if (f.isDir) openFolder(f.path); else act(gx.openPath(f.path)); },
   'inbox-move': async (d) => { const f = S.inbox.items[+d.i]; if (!f) return; if (await act(gx.moveFile(f.path, f.destKey), f.name + ' → ' + f.destLabel)) loadInbox(); },
   'inbox-open': (d) => { const f = S.inbox.items[+d.i]; if (f) act(gx.openPath(f.path)); },
   'inbox-show': (d) => { const f = S.inbox.items[+d.i]; if (f) act(gx.showInFolder(f.path)); },

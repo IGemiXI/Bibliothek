@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.9.2 – Papierkorb
+- Ordner-Seite: neuer Bereich „Windows“ mit Papierkorb (Anzahl, Öffnen, Leeren mit Rückfrage), Dieser PC und Desktop
+- Rechtsklick auf eine Datei: Öffnen, Im Explorer zeigen, In den Papierkorb
+- Papierkorb und Dieser PC auch unter Einstellungen → Windows-Werkzeuge
+
 ## 0.9.1 – Mini-Leiste
 - Die Uhr auf dem Zweitbildschirm ist jetzt eine kleine Leiste: deckend statt durchsichtig
 - Mit der Maus frei verschiebbar – die Position wird pro Bildschirm gemerkt
