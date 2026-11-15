@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.9.0 – Uhr auf dem Zweitbildschirm
+- Kleine Uhr in der Ecke jedes Zweitbildschirms – liegt über allem (auch über YouTube im Vollbild), Klicks gehen durch
+- Zeigt die Zahl ungelesener Nachrichten; blinkt eine App, leuchtet der Punkt orange
+- Neue Nachrichten erscheinen 7 Sekunden lang darunter und verschwinden von selbst
+- Einstellungen: Uhr an/aus und Ecke wählen (↖ ↗ ↙ ↘)
+
 ## 0.8.4 – Benachrichtigungen löschen
 - Einzelne Benachrichtigungen mit × entfernen (erscheint beim Drüberfahren)
 - „Alle löschen“ leert die Liste – in der Glocke und auf dem Zweitbildschirm

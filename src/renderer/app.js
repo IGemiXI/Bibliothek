@@ -524,6 +524,8 @@ function renderSettings() {
           ${tg('winKey', c.winKey, 'Windows-Taste', 'Win: Bibliothek ↔ Spiel · Win + Tab: Zweitbildschirm')}
           ${tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft')}
           ${multiMon() ? tg('companion', c.companion, 'Zweitbildschirme', 'Eigene Seite mit Schnellstart statt Windows-Hintergrund') : ''}
+          ${multiMon() ? tg('hud', c.hud, 'Uhr auf Zweitbildschirmen', 'Klein in der Ecke, liegt über allem – zeigt auch neue Nachrichten kurz an') : ''}
+          ${multiMon() && c.hud ? `<div class="set-row"><div class="l"><span>Position der Uhr</span><span>Ecke auf jedem Zweitbildschirm</span></div><div class="seg">${[['tl', '↖'], ['tr', '↗'], ['bl', '↙'], ['br', '↘']].map(([k, l]) => `<button data-act="hud-pos" data-k="${k}" aria-pressed="${(c.hudPos || 'tl') === k}" title="${{ tl: 'Oben links', tr: 'Oben rechts', bl: 'Unten links', br: 'Unten rechts' }[k]}">${l}</button>`).join('')}</div></div>` : ''}
           ${tg('hotCorner', c.hotCorner, 'Ecke unten links', 'Maus in die Ecke holt die Bibliothek zurück (nicht beim Spielen)')}
         </section>
         <div class="power-grid">
@@ -1012,6 +1014,7 @@ const ACTIONS = {
     const r = await gx.notifDismiss(d.h ? { h: +d.h } : { id: d.id }).catch(() => null);
     if (r) { S.notif = r; refreshNotifPop(); if (IS_COMPANION && window.renderCompanion) window.renderCompanion(); else { renderTop(); renderSide(); } }
   },
+  'hud-pos': (d) => act(gx.setConfig({ hudPos: d.k })),
   'notif-clear': async () => {
     const r = await gx.notifClear().catch(() => null);
     if (r) { S.notif = r; refreshNotifPop(); renderTop(); renderSide(); }

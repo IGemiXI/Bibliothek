@@ -50,6 +50,8 @@ const DEFAULT_CONFIG = {
   displayId: null,           // Bildschirm für die Bibliothek (null = Hauptbildschirm)
   sgdbKey: '',               // SteamGridDB-Schlüssel für Cover (optional)
   companion: true,           // eigene Seite auf den Zweitbildschirmen
+  hud: true,                 // kleine Uhr auf den Zweitbildschirmen (liegt über allem, klickt durch)
+  hudPos: 'tl',
   quickTiles: null,          // Schnellstart auf den Zweitbildschirmen (wird beim ersten Start befüllt)
   startMode: 'off',          // off | autostart | shell
   hideTaskbar: true,
@@ -149,7 +151,44 @@ function syncCompanions() {
     w.once('ready-to-show', () => setTimeout(syncHwnds, 300));
   }
   syncHwnds();
+  syncHud();
 }
+
+/* Kleine Uhr auf den Zweitbildschirmen – nur zum Anschauen: immer oben, Klicks gehen durch */
+const huds = new Map();
+const HUD_W = 400, HUD_H = 140, HUD_M = 14;
+function hudBounds(d, pos) {
+  const b = d.bounds;
+  const x = /r/.test(pos) ? b.x + b.width - HUD_W - HUD_M : b.x + HUD_M;
+  const y = /b/.test(pos) ? b.y + b.height - HUD_H - HUD_M : b.y + HUD_M;
+  return { x, y, width: HUD_W, height: HUD_H };
+}
+function syncHud() {
+  const main = targetDisplay().id;
+  const pos = ['tl', 'tr', 'bl', 'br'].includes(config.hudPos) ? config.hudPos : 'tl';
+  const wanted = config.hud ? screen.getAllDisplays().filter((d) => d.id !== main) : [];
+  for (const [id, w] of huds) {
+    if (!wanted.some((d) => d.id === id) || w.hudPos !== pos) { huds.delete(id); if (!w.isDestroyed()) w.destroy(); }
+  }
+  for (const d of wanted) {
+    let w = huds.get(d.id);
+    if (w && !w.isDestroyed()) { w.setBounds(hudBounds(d, pos)); continue; }
+    w = new BrowserWindow(Object.assign(hudBounds(d, pos), {
+      frame: false, transparent: true, resizable: false, movable: false, focusable: false,
+      skipTaskbar: true, show: false, alwaysOnTop: true, hasShadow: false, fullscreenable: false,
+      backgroundColor: '#00000000', title: 'Bibliothek Uhr',
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
+    }));
+    w.hudPos = pos;
+    w.setIgnoreMouseEvents(true);
+    w.setAlwaysOnTop(true, 'screen-saver');
+    w.loadFile(path.join(__dirname, 'renderer', 'hud.html'), { query: { pos } });
+    w.once('ready-to-show', () => { w.showInactive(); w.setBounds(hudBounds(d, pos)); });
+    huds.set(d.id, w);
+  }
+}
+// Andere Fenster mit „immer oben“ (z. B. Videos im Vollbild) dürfen die Uhr nicht verdecken
+setInterval(() => { for (const w of huds.values()) if (!w.isDestroyed() && w.isVisible()) w.moveTop(); }, 5000);
 
 /* Programm/Website starten und das neue Fenster auf einen bestimmten Bildschirm schieben */
 async function launchOnDisplay(displayId, launch, matchPath) {
@@ -351,7 +390,7 @@ async function showTaskbar() {
 }
 
 function send(channel, data) {
-  for (const w of [win, ...companions.values()]) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
+  for (const w of [win, ...companions.values(), ...(channel === 'notifications' ? huds.values() : [])]) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
 }
 
 function pushWindows() { send('windows'); }
@@ -446,7 +485,7 @@ function fullState() {
     scanning,
     config: {
       ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId, sideCollapsed: !!config.sideCollapsed,
-      hasSgdbKey: !!config.sgdbKey, companion: config.companion, quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
+      hasSgdbKey: !!config.sgdbKey, companion: config.companion, hud: config.hud !== false, hudPos: config.hudPos || 'tl', quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
       startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
       shortcut: config.shortcut, folders: config.folders, customTiles: config.customTiles,
     },
@@ -1004,6 +1043,7 @@ handle('setConfig', async (patch) => {
   if ('displayId' in patch) moveToDisplay();
   if ('winKey' in patch) helper.safe('winkey', { on: !!config.winKey });
   if ('companion' in patch) syncCompanions();
+  if ('hud' in patch || 'hudPos' in patch) syncHud();
   if ('sgdbKey' in patch) { for (const k of Object.keys(artMap)) if (!artMap[k].cover) delete artMap[k]; fetchMissingArt(); }
   if ('hideTaskbar' in patch) applyTaskbar();
   if ('hotCorner' in patch) updateCorner();
