@@ -169,11 +169,13 @@ async function launchOnDisplay(displayId, launch, matchPath) {
 
 /* Fensterliste mit Bildschirmnummer (1, 2, 3 …) */
 /* Fenster, die Aufmerksamkeit wollen (blinken in der Taskleiste – z. B. Steam orange, Discord bei Direktnachrichten) */
-const attention = new Map(); // hwnd -> Zeitpunkt
+const attention = new Map();
+const liveHidden = new Map(); // weggeklickte Fenster-Einträge: h → Zähler beim Wegklicken // hwnd -> Zeitpunkt
 let lastWins = [];
 helper.on('flash', (ev) => {
   const h = Number(ev && ev.h) || 0;
   if (!h || ourHandles().has(h) || attention.has(h)) return;
+  liveHidden.delete(h);
   attention.set(h, Date.now());
   windowsWithMon().then(() => { send('windows'); send('notifications', notifPayload()); });
 });
@@ -1147,7 +1149,9 @@ function progForApp(app) {
 }
 function notifPayload() {
   const seen = config.notifSeen || 0;
-  const items = notifs.items.slice(0, 40).map((n) => {
+  const dismissed = new Set(config.notifDismissed || []);
+  const clearedAt = config.notifClearedAt || 0;
+  const items = notifs.items.filter((n) => !dismissed.has(String(n.id)) && !(n.time && n.time <= clearedAt)).slice(0, 40).map((n) => {
     const p = progForApp(n.app);
     const v = p ? programView(p) : null;
     return Object.assign({}, n, { icon: v ? v.icon : null, programId: p ? p.id : null, unread: n.time > seen });
@@ -1158,6 +1162,7 @@ function notifPayload() {
   const iconFor = (w) => { const p = progByPath(w.path); return p ? programView(p).icon : null; };
   const live = lastWins
     .filter((w) => attention.has(w.h) || w.badge > 0)
+    .filter((w) => !(liveHidden.has(w.h) && !attention.has(w.h) && w.badge <= liveHidden.get(w.h)))
     .map((w) => ({ kind: 'window', h: w.h, app: nameFor(w), title: w.title.replace(/^\s*[(\[]\d+[)\]]\s*/, ''), badge: w.badge, attention: attention.has(w.h), time: attention.get(w.h) || 0, icon: iconFor(w), path: w.path }));
   const liveCount = live.filter((w) => w.attention).length + live.filter((w) => !w.attention && w.badge > 0).length;
   return { items, live, unread: items.filter((n) => n.unread).length + liveCount, error: notifs.error };
@@ -1176,6 +1181,25 @@ async function pollNotifications(force) {
   send('notifications', notifPayload());
 }
 handle('notifications', () => notifPayload());
+handle('notifDismiss', (x) => {
+  if (x && x.h) {
+    const h = Number(x.h);
+    attention.delete(h);
+    const w = lastWins.find((v) => v.h === h);
+    liveHidden.set(h, w ? w.badge : 0);
+  } else if (x && x.id != null) {
+    config.notifDismissed = [...(config.notifDismissed || []), String(x.id)].slice(-500);
+    saveConfig();
+  }
+  const p = notifPayload(); send('notifications', p); return p;
+});
+handle('notifClear', () => {
+  config.notifClearedAt = Math.max(Date.now(), ...notifs.items.map((n) => n.time || 0));
+  config.notifDismissed = [];
+  for (const w of lastWins) if (attention.has(w.h) || w.badge > 0) { attention.delete(w.h); liveHidden.set(w.h, w.badge); }
+  saveConfig();
+  const p = notifPayload(); send('notifications', p); return p;
+});
 handle('notifSeen', () => { config.notifSeen = Date.now(); saveConfig(); send('notifications', notifPayload()); return true; });
 handle('notifOpen', async (app) => {
   const p = progForApp(app);

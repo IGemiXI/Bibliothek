@@ -98,7 +98,7 @@
                 : '<div class="muted" style="font-size:13px;line-height:1.6">Hier ist gerade nichts geöffnet. Starte etwas aus dem Schnellstart – es landet direkt auf diesem Bildschirm.</div>'}</div>
             </section>
             ${S.notif && (S.notif.items.length || (S.notif.live || []).length) ? `<section class="panel widget" style="gap:8px">
-              <div class="widget-head"><span class="eyebrow">Benachrichtigungen</span><span class="r">${S.notif.unread ? S.notif.unread + ' neu' : ''}</span></div>
+              <div class="widget-head"><span class="eyebrow">Benachrichtigungen</span><button class="notif-clear" data-act="notif-clear">Alle löschen</button></div>
               ${(S.notif.live || []).slice(0, 3).map((w) => liveRow(w, true)).join('')}
               ${S.notif.items.slice(0, Math.max(0, 4 - (S.notif.live || []).length)).map((n) => notifRow(n, true)).join('')}
             </section>` : ''}

@@ -851,14 +851,14 @@ function notifRow(n, compact) {
   return `<button class="notif${n.unread ? ' unread' : ''}${compact ? ' compact' : ''}" data-act="notif-open" data-app="${esc(n.app)}">
     <span class="n-ic">${ic}</span>
     <span class="n-body"><span class="n-head"><b>${esc(n.app)}</b><span>${esc(fmtAgo(n.time))}</span></span>
-    <span class="n-title">${esc(n.title)}</span>${n.body ? `<span class="n-text">${esc(n.body)}</span>` : ''}</span></button>`;
+    <span class="n-title">${esc(n.title)}</span>${n.body ? `<span class="n-text">${esc(n.body)}</span>` : ''}</span><span class="n-x" data-act="notif-dismiss" data-id="${esc(String(n.id))}" title="Entfernen" role="button" aria-label="Entfernen">×</span></button>`;
 }
 function liveRow(w, compact) {
   const ic = w.icon ? `<span class="mono">${esc(w.app.charAt(0))}</span><img src="${esc(w.icon)}" data-srcs="${attr([w.icon])}" alt="">` : `<span class="mono">${esc((w.app || '?').charAt(0))}</span>`;
   return `<button class="notif live${w.attention ? ' attn' : ''}${compact ? ' compact' : ''}" data-act="win-focus" data-h="${w.h}">
     <span class="n-ic">${ic}${liveDot(w)}</span>
     <span class="n-body"><span class="n-head"><b>${esc(w.app)}</b><span>${w.attention ? 'blinkt' : w.badge ? w.badge + ' neu' : ''}</span></span>
-    <span class="n-title">${esc(w.title)}</span></span></button>`;
+    <span class="n-title">${esc(w.title)}</span></span><span class="n-x" data-act="notif-dismiss" data-h="${w.h}" title="Entfernen" role="button" aria-label="Entfernen">×</span></button>`;
 }
 function fmtAgo(ts) {
   if (!ts) return '';
@@ -869,16 +869,28 @@ function fmtAgo(ts) {
   if (h < 24) return 'vor ' + h + ' Std.';
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ', ' + new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
-function notifPopover(anchor) {
+function notifPopHtml() {
   const N = S.notif || { items: [] };
-  popover(anchor, `<div class="notif-pop">
-    <div class="notif-pop-head"><span class="eyebrow">Benachrichtigungen</span><span class="muted" style="margin-left:auto;font-size:11.5px">${N.items.length ? N.items.length + ' zuletzt' : ''}</span></div>
+  const any = N.items.length || (N.live || []).length;
+  return `<div class="notif-pop">
+    <div class="notif-pop-head"><span class="eyebrow">Benachrichtigungen</span>${any ? '<button class="notif-clear" data-act="notif-clear">Alle löschen</button>' : ''}</div>
     <div class="notif-list">
       ${(N.live || []).length ? `<div class="res-group" style="padding:4px 6px">Wartet auf dich</div>${N.live.map((w) => liveRow(w)).join('')}<div class="res-group" style="padding:10px 6px 4px">Windows-Benachrichtigungen</div>` : ''}
       ${N.error ? `<div class="muted" style="padding:16px;line-height:1.5">${esc(N.error)}</div>` : ''}
       ${N.items.length ? N.items.map((n) => notifRow(n)).join('') : N.error ? '' : `<div class="muted" style="padding:${(N.live || []).length ? '8px 10px' : '20px'};line-height:1.6;font-size:12.5px">${(N.live || []).length ? 'Keine Windows-Benachrichtigungen.' : 'Alles ruhig.<br><span style="font-size:11.5px">Hier erscheint, wenn eine App blinkt (z. B. Steam), eine Zahl im Fenstertitel hat oder an Windows meldet.</span>'}</div>`}</div>
-  </div>`, true);
+  </div>`;
+}
+function notifPopover(anchor) {
+  popover(anchor, notifPopHtml(), true);
+  const N = S.notif || {};
   if (N.unread) gx.notifSeen().catch(() => {});
+}
+function refreshNotifPop() {
+  const el = document.querySelector('.popover .notif-pop');
+  if (!el) return;
+  const t = document.createElement('div');
+  t.innerHTML = notifPopHtml();
+  el.replaceWith(t.firstElementChild);
 }
 
 function trayTile(a) {
@@ -994,6 +1006,16 @@ const ACTIONS = {
     if (await act(gx.trayQuit(d.k)) !== null && a) toast(a.name + ' wurde beendet.');
   },
   'notif-open': (d) => { closePopover(); act(gx.notifOpen(d.app)); },
+  'notif-dismiss': async (d, el) => {
+    const row = el.closest('.notif');
+    if (row) row.classList.add('leaving');
+    const r = await gx.notifDismiss(d.h ? { h: +d.h } : { id: d.id }).catch(() => null);
+    if (r) { S.notif = r; refreshNotifPop(); if (IS_COMPANION && window.renderCompanion) window.renderCompanion(); else { renderTop(); renderSide(); } }
+  },
+  'notif-clear': async () => {
+    const r = await gx.notifClear().catch(() => null);
+    if (r) { S.notif = r; refreshNotifPop(); renderTop(); renderSide(); }
+  },
   'power-pop': (_d, el) => powerPopover(el),
   tool: (d) => { closePopover(); act(gx.tool(d.key)); },
   'win-focus': (d) => { closePopover(); act(gx.focusWindow(+d.h)); },
@@ -1259,6 +1281,7 @@ gx.on('toast', (t) => toast(t.text, t.kind));
 gx.on('notifications', (n) => {
   S.notif = n;
   if (IS_COMPANION) { if (window.renderCompanion) window.renderCompanion(); return; }
+  refreshNotifPop();
   renderTop();
   renderSide();
 });

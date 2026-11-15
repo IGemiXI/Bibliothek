@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.8.4 – Benachrichtigungen löschen
+- Einzelne Benachrichtigungen mit × entfernen (erscheint beim Drüberfahren)
+- „Alle löschen“ leert die Liste – in der Glocke und auf dem Zweitbildschirm
+- Weggeklickte Blink-/Zähler-Einträge kommen erst bei einer neuen Nachricht wieder
+
 ## 0.8.3 – WoW wird zuverlässiger gefunden
 - World of Warcraft wird jetzt auch über die Battle.net-Datenbank und auf allen Laufwerken (D:, E: …) gesucht – nicht nur über die Registry
 - Neues Protokoll `%APPDATA%\Bibliothek\scan.log`: zeigt nach „Neu einlesen“, was wo gefunden wurde

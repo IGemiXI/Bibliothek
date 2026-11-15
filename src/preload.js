@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('gx', {
   startDrag: (p) => ipcRenderer.send('start-drag', p),
   notifications: () => call('notifications'),
   notifSeen: () => call('notifSeen'),
+  notifDismiss: (x) => call('notifDismiss', x),
+  notifClear: () => call('notifClear'),
   notifOpen: (app) => call('notifOpen', app),
   trayApps: () => call('trayApps'),
   trayOpen: (k) => call('trayOpen', k),
