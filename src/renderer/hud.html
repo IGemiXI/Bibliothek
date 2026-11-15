@@ -3,34 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self'">
-<title>Bibliothek Uhr</title>
+<title>Bibliothek Leiste</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-font-smoothing: antialiased; font-family: Inter, 'Segoe UI', sans-serif; color: #efe9dc; font-feature-settings: 'tnum' 1; }
-  #hud { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
-  #hud.r { align-items: flex-end; }
-  #hud.l { align-items: flex-start; }
-  #hud.b { flex-direction: column-reverse; }
-  .pill { display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 12px; border-radius: 12px;
-    background: rgba(12,10,8,.62); border: 1px solid rgba(214,178,104,.22); box-shadow: 0 6px 20px rgba(0,0,0,.35);
-    backdrop-filter: blur(8px); opacity: .9; }
-  .time { font-family: Cinzel, serif; font-weight: 700; font-size: 21px; letter-spacing: .04em; color: #f3e6c4; line-height: 1; }
-  .day { font-size: 11.5px; color: #b9b0a0; letter-spacing: .02em; line-height: 1; }
-  .sep { width: 1px; height: 18px; background: rgba(214,178,104,.22); }
+  #hud { position: absolute; left: 0; top: 0; padding: 4px; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; transition: opacity .35s ease; }
+  #hud.flip { flex-direction: column-reverse; }
+  #hud.flip .peek { transform: translateY(6px); }
+  #hud.flip .peek.show { transform: none; }
+  #hud.dim { opacity: .18; }
+  #hud.dim.peeking { opacity: .95; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 12px; cursor: grab;
+    background: rgba(16,13,10,.95); border: 1px solid rgba(214,178,104,.28); box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  .bar:hover { border-color: rgba(214,178,104,.5); }
+  .bar.dragging { cursor: grabbing; }
+  .time { font-family: Cinzel, serif; font-weight: 700; font-size: 20px; letter-spacing: .04em; color: #f3e6c4; line-height: 1; }
+  .day { font-size: 11.5px; color: #b9b0a0; line-height: 1; white-space: nowrap; }
   .ind { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #e7c98a; }
   .ind.on { display: flex; }
+  .sep { width: 1px; height: 18px; background: rgba(214,178,104,.22); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #d6b268; box-shadow: 0 0 8px rgba(214,178,104,.8); }
   .ind.attn { color: #f0a868; }
   .ind.attn .dot { background: #e8873a; box-shadow: 0 0 10px rgba(232,135,58,.9); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .35; } }
-  .peek { display: flex; align-items: center; gap: 10px; max-width: 380px; padding: 9px 14px 9px 10px; border-radius: 12px;
-    background: rgba(12,10,8,.78); border: 1px solid rgba(214,178,104,.3); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  .chev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #b9b0a0; border-radius: 6px; transition: transform .2s; }
+  .open .chev { transform: rotate(180deg); color: #e7c98a; }
+  .panel { display: none; flex-direction: column; width: 310px; padding: 8px; border-radius: 12px;
+    background: rgba(16,13,10,.97); border: 1px solid rgba(214,178,104,.3); box-shadow: 0 10px 28px rgba(0,0,0,.55); }
+  .open .panel { display: flex; }
+  .p-head { font-size: 10.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #d6b268; padding: 4px 8px 8px; }
+  .list { display: flex; flex-direction: column; gap: 2px; max-height: 420px; overflow-y: auto; }
+  .list::-webkit-scrollbar { width: 6px; } .list::-webkit-scrollbar-thumb { background: rgba(214,178,104,.25); border-radius: 3px; }
+  .win { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .win:hover { background: rgba(214,178,104,.09); border-color: rgba(214,178,104,.18); }
+  .win.attn { background: rgba(232,135,58,.12); border-color: rgba(232,135,58,.45); }
+  .w-ic { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: rgba(214,178,104,.1); color: #d6b268; font-weight: 700; font-size: 11px; overflow: hidden; }
+  .w-ic img { width: 20px; height: 20px; object-fit: contain; }
+  .w-ic.img { background: none; }
+  .w-t { flex: 1; min-width: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .w-b { font-size: 10.5px; font-weight: 700; color: #fff; background: #e04f4f; border-radius: 9px; padding: 1px 6px; }
+  .w-m { font-size: 10px; color: #8f8676; border: 1px solid rgba(214,178,104,.2); border-radius: 4px; padding: 0 4px; }
+  .w-x { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #8f8676; font-size: 15px; opacity: 0; }
+  .win:hover .w-x { opacity: 1; }
+  .w-x:hover { background: rgba(224,79,79,.2); color: #f08a8a; }
+  .empty { font-size: 12px; color: #8f8676; padding: 10px 8px; }
+  .foot { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(214,178,104,.14); }
+  .fbtn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #e7c98a; cursor: pointer; border: 1px solid rgba(214,178,104,.25); }
+  .fbtn:hover { background: rgba(214,178,104,.1); }
+  .peek { display: none; align-items: center; gap: 10px; max-width: 360px; padding: 9px 14px 9px 10px; border-radius: 12px;
+    background: rgba(16,13,10,.96); border: 1px solid rgba(214,178,104,.32); box-shadow: 0 8px 22px rgba(0,0,0,.5);
     opacity: 0; transform: translateY(-6px); transition: opacity .35s, transform .35s; }
-  #hud.b .peek { transform: translateY(6px); }
+  .peek.vis { display: flex; }
   .peek.show { opacity: 1; transform: none; }
   .peek.attn { border-color: rgba(232,135,58,.55); }
-  .p-ic { width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; display: flex; align-items: center; justify-content: center;
-    background: rgba(214,178,104,.12); color: #d6b268; font-family: Cinzel, serif; font-weight: 700; font-size: 13px; overflow: hidden; }
+  .open .peek { display: none; }
+  .p-ic { width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(214,178,104,.12); color: #d6b268; font-family: Cinzel, serif; font-weight: 700; font-size: 13px; overflow: hidden; }
   .p-ic img { width: 24px; height: 24px; object-fit: contain; }
   .p-b { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .p-app { font-size: 11px; font-weight: 600; color: #e7c98a; letter-spacing: .03em; }
@@ -40,9 +67,15 @@
 </head>
 <body>
 <div id="hud">
-  <div class="pill">
+  <div class="bar" id="bar" title="Klicken: offene Fenster · Ziehen: verschieben">
     <span class="time" id="time"></span><span class="day" id="day"></span>
     <span class="ind" id="ind"><span class="sep"></span><span class="dot"></span><span id="cnt"></span></span>
+    <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+  </div>
+  <div class="panel" id="panel">
+    <div class="p-head">Geöffnet</div>
+    <div class="list" id="list"></div>
+    <div class="foot"><div class="fbtn" id="lib">Bibliothek öffnen</div></div>
   </div>
   <div class="peek" id="peek"></div>
 </div>

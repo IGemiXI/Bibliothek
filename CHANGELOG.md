@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.9.1 – Mini-Leiste
+- Die Uhr auf dem Zweitbildschirm ist jetzt eine kleine Leiste: deckend statt durchsichtig
+- Mit der Maus frei verschiebbar – die Position wird pro Bildschirm gemerkt
+- Klick klappt die offenen Fenster auf (mit Zählern, Bildschirmnummer, ×) – ein Klick springt hin, ohne dass das Spiel den Fokus verliert
+- Arbeitest du mit der Maus auf dem Bildschirm, verblasst sie; fährst du drüber, ist sie wieder voll da
+- In der unteren Bildschirmhälfte klappt sie nach oben auf
+
 ## 0.9.0 – Uhr auf dem Zweitbildschirm
 - Kleine Uhr in der Ecke jedes Zweitbildschirms – liegt über allem (auch über YouTube im Vollbild), Klicks gehen durch
 - Zeigt die Zahl ungelesener Nachrichten; blinkt eine App, leuchtet der Punkt orange

@@ -53,8 +53,11 @@ contextBridge.exposeInMainWorld('gx', {
   trayApps: () => call('trayApps'),
   trayOpen: (k) => call('trayOpen', k),
   trayQuit: (k) => call('trayQuit', k),
+  hudSize: (w, h, bar) => ipcRenderer.send('hud-size', { w, h, bar }),
+  hudDrag: (on) => ipcRenderer.send('hud-drag', !!on),
+  hudExpand: (on) => ipcRenderer.send('hud-expand', !!on),
   on: (channel, fn) => {
-    const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey', 'notifications'];
+    const allowed = ['state', 'toast', 'inbox-changed', 'windows', 'winkey', 'notifications', 'hud'];
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => fn(data));
   },

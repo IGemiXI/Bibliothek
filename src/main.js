@@ -154,40 +154,113 @@ function syncCompanions() {
   syncHud();
 }
 
-/* Kleine Uhr auf den Zweitbildschirmen – nur zum Anschauen: immer oben, Klicks gehen durch */
+/* Mini-Leiste auf den Zweitbildschirmen: Uhr, Nachrichten, offene Fenster.
+   Frei verschiebbar (Position wird gemerkt), nimmt nie den Fokus, verblasst wenn die Maus auf dem Bildschirm arbeitet. */
 const huds = new Map();
-const HUD_W = 400, HUD_H = 140, HUD_M = 14;
-function hudBounds(d, pos) {
+const HUD_M = 14;
+function hudDisplay(w) { return screen.getAllDisplays().find((d) => d.id === w.hud.disp); }
+function hudClamp(d, x, y, wd, ht) {
   const b = d.bounds;
-  const x = /r/.test(pos) ? b.x + b.width - HUD_W - HUD_M : b.x + HUD_M;
-  const y = /b/.test(pos) ? b.y + b.height - HUD_H - HUD_M : b.y + HUD_M;
-  return { x, y, width: HUD_W, height: HUD_H };
+  return { x: Math.round(Math.max(b.x, Math.min(b.x + b.width - wd, x))), y: Math.round(Math.max(b.y, Math.min(b.y + b.height - ht, y))) };
+}
+function hudPlace(w) {
+  const d = hudDisplay(w);
+  if (!d || w.isDestroyed()) return;
+  const { wd, ht } = w.hud.size;
+  const spot = (config.hudSpots || {})[String(d.id)];
+  let x, y;
+  if (spot) { x = d.bounds.x + spot.x; y = d.bounds.y + spot.y; }
+  else {
+    const pos = ['tl', 'tr', 'bl', 'br'].includes(config.hudPos) ? config.hudPos : 'tl';
+    x = /r/.test(pos) ? d.bounds.x + d.bounds.width - 240 - HUD_M : d.bounds.x + HUD_M;
+    y = /b/.test(pos) ? d.bounds.y + d.bounds.height - 52 - HUD_M : d.bounds.y + HUD_M;
+  }
+  // In der unteren Bildschirmhälfte klappt die Leiste nach oben auf – die Uhr bleibt an ihrem Platz
+  const flip = y + (w.hud.barH || 52) / 2 > d.bounds.y + d.bounds.height / 2;
+  if (flip !== w.hud.flip) { w.hud.flip = flip; w.webContents.send('hud', { flip }); }
+  if (flip) y = y + (w.hud.barH || ht) - ht;
+  const c = hudClamp(d, x, y, wd, ht);
+  w.setBounds({ x: c.x, y: c.y, width: wd, height: ht });
 }
 function syncHud() {
   const main = targetDisplay().id;
-  const pos = ['tl', 'tr', 'bl', 'br'].includes(config.hudPos) ? config.hudPos : 'tl';
   const wanted = config.hud ? screen.getAllDisplays().filter((d) => d.id !== main) : [];
   for (const [id, w] of huds) {
-    if (!wanted.some((d) => d.id === id) || w.hudPos !== pos) { huds.delete(id); if (!w.isDestroyed()) w.destroy(); }
+    if (!wanted.some((d) => d.id === id)) { huds.delete(id); if (!w.isDestroyed()) w.destroy(); }
   }
   for (const d of wanted) {
     let w = huds.get(d.id);
-    if (w && !w.isDestroyed()) { w.setBounds(hudBounds(d, pos)); continue; }
-    w = new BrowserWindow(Object.assign(hudBounds(d, pos), {
+    if (w && !w.isDestroyed()) { hudPlace(w); continue; }
+    w = new BrowserWindow({
+      x: d.bounds.x + HUD_M, y: d.bounds.y + HUD_M, width: 240, height: 52,
       frame: false, transparent: true, resizable: false, movable: false, focusable: false,
       skipTaskbar: true, show: false, alwaysOnTop: true, hasShadow: false, fullscreenable: false,
-      backgroundColor: '#00000000', title: 'Bibliothek Uhr',
+      backgroundColor: '#00000000', title: 'Bibliothek Leiste',
       webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
-    }));
-    w.hudPos = pos;
-    w.setIgnoreMouseEvents(true);
+    });
+    w.hud = { disp: d.id, size: { wd: 240, ht: 52 }, expanded: false, outSince: 0, mode: '' };
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.loadFile(path.join(__dirname, 'renderer', 'hud.html'), { query: { pos } });
-    w.once('ready-to-show', () => { w.showInactive(); w.setBounds(hudBounds(d, pos)); });
+    w.loadFile(path.join(__dirname, 'renderer', 'hud.html'), { query: { display: String(d.id) } });
+    w.once('ready-to-show', () => { hudPlace(w); w.showInactive(); });
     huds.set(d.id, w);
   }
 }
-// Andere Fenster mit „immer oben“ (z. B. Videos im Vollbild) dürfen die Uhr nicht verdecken
+const hudOf = (e) => [...huds.values()].find((w) => !w.isDestroyed() && w.webContents === e.sender);
+ipcMain.on('hud-size', (e, sz) => {
+  const w = hudOf(e);
+  if (!w || !sz) return;
+  w.hud.size = { wd: Math.max(60, Math.min(520, Math.ceil(sz.w))), ht: Math.max(30, Math.min(900, Math.ceil(sz.h))) };
+  if (sz.bar) w.hud.barH = Math.ceil(sz.bar);
+  if (!w.hud.drag) hudPlace(w);
+});
+ipcMain.on('hud-expand', (e, on) => { const w = hudOf(e); if (w) { w.hud.expanded = !!on; w.hud.outSince = 0; } });
+ipcMain.on('hud-drag', (e, on) => {
+  const w = hudOf(e);
+  if (!w) return;
+  if (on) {
+    const c = screen.getCursorScreenPoint();
+    const b = w.getBounds();
+    const off = { x: c.x - b.x, y: c.y - b.y };
+    clearInterval(w.hud.drag);
+    w.hud.drag = setInterval(() => {
+      if (w.isDestroyed()) return;
+      const d = hudDisplay(w);
+      const p = screen.getCursorScreenPoint();
+      if (!d) return;
+      const cl = hudClamp(d, p.x - off.x, p.y - off.y, w.hud.size.wd, w.hud.size.ht);
+      w.setBounds({ x: cl.x, y: cl.y, width: w.hud.size.wd, height: w.hud.size.ht });
+    }, 16);
+  } else {
+    clearInterval(w.hud.drag);
+    w.hud.drag = null;
+    const d = hudDisplay(w);
+    if (!d) return;
+    const b = w.getBounds();
+    const barTop = w.hud.flip ? b.y + b.height - (w.hud.barH || b.height) : b.y;
+    config.hudSpots = Object.assign({}, config.hudSpots, { [String(d.id)]: { x: b.x - d.bounds.x, y: barTop - d.bounds.y } });
+    saveConfig();
+    hudPlace(w);
+  }
+});
+// Maus beobachten: auf dem Bildschirm unterwegs → verblassen, über der Leiste → voll da, ausgeklappt & Maus weg → einklappen
+setInterval(() => {
+  if (!huds.size) return;
+  const c = screen.getCursorScreenPoint();
+  for (const w of huds.values()) {
+    if (w.isDestroyed() || !w.isVisible()) continue;
+    const b = w.getBounds();
+    const d = hudDisplay(w);
+    const inside = c.x >= b.x - 6 && c.x <= b.x + b.width + 6 && c.y >= b.y - 6 && c.y <= b.y + b.height + 6;
+    const onDisp = d && c.x >= d.bounds.x && c.x < d.bounds.x + d.bounds.width && c.y >= d.bounds.y && c.y < d.bounds.y + d.bounds.height;
+    const mode = inside || w.hud.drag ? 'hover' : onDisp ? 'dim' : 'idle';
+    if (mode !== w.hud.mode) { w.hud.mode = mode; w.webContents.send('hud', { mode }); }
+    if (w.hud.expanded && !inside && !w.hud.drag) {
+      if (!w.hud.outSince) w.hud.outSince = Date.now();
+      else if (Date.now() - w.hud.outSince > 1600) { w.hud.expanded = false; w.hud.outSince = 0; w.webContents.send('hud', { collapse: true }); }
+    } else w.hud.outSince = 0;
+  }
+}, 200);
+// Andere Fenster mit „immer oben“ (z. B. Videos im Vollbild) dürfen die Leiste nicht verdecken
 setInterval(() => { for (const w of huds.values()) if (!w.isDestroyed() && w.isVisible()) w.moveTop(); }, 5000);
 
 /* Programm/Website starten und das neue Fenster auf einen bestimmten Bildschirm schieben */
@@ -390,7 +463,7 @@ async function showTaskbar() {
 }
 
 function send(channel, data) {
-  for (const w of [win, ...companions.values(), ...(channel === 'notifications' ? huds.values() : [])]) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
+  for (const w of [win, ...companions.values(), ...(channel === 'notifications' || channel === 'windows' ? huds.values() : [])]) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
 }
 
 function pushWindows() { send('windows'); }
@@ -1043,6 +1116,7 @@ handle('setConfig', async (patch) => {
   if ('displayId' in patch) moveToDisplay();
   if ('winKey' in patch) helper.safe('winkey', { on: !!config.winKey });
   if ('companion' in patch) syncCompanions();
+  if ('hudPos' in patch) { config.hudSpots = {}; saveConfig(); }
   if ('hud' in patch || 'hudPos' in patch) syncHud();
   if ('sgdbKey' in patch) { for (const k of Object.keys(artMap)) if (!artMap[k].cover) delete artMap[k]; fetchMissingArt(); }
   if ('hideTaskbar' in patch) applyTaskbar();
