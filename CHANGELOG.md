@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.10.1
+- Taskleisten-Design im neuen YAML-Format von Windhawk („Design kopieren“)
+
 ## 0.10.0 – Bibliothek als Desktop
 - Neue Darstellung „Als Desktop“ (Einstellungen → Darstellung): Windows bleibt normal mit Taskleiste, Startmenü und Win-Taste – die Bibliothek ist der Desktop
 - Win + D, „Desktop anzeigen“ und das Schließen des letzten Fensters führen zur Bibliothek

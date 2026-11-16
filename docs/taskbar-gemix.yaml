@@ -1,0 +1,26 @@
+controlStyles:
+  - target: Rectangle#BackgroundFill
+    styles:
+      - Fill=#F20D0B08
+  - target: Rectangle#BackgroundStroke
+    styles:
+      - Fill=#66D6B268
+  - target: Taskbar.TaskListLabeledButtonPanel@RunningIndicatorStates > Rectangle#RunningIndicator
+    styles:
+      - Fill=#D6B268
+      - Fill@ActiveRunningIndicator=#F3E6C4
+      - Fill@InactiveRunningIndicator=#8C7444
+      - RadiusX=1.5
+      - RadiusY=1.5
+  - target: Taskbar.TaskListButton
+    styles:
+      - CornerRadius=8
+  - target: TextBlock#LabelControl
+    styles:
+      - Foreground=#EFE9DC
+  - target: TextBlock#InnerTextBlock
+    styles:
+      - Foreground=#F3E6C4
+  - target: Taskbar.TaskbarBackground#HoverFlyoutBackgroundControl > Grid > Rectangle#BackgroundFill
+    styles:
+      - Fill=#F2141009

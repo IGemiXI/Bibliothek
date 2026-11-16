@@ -1172,7 +1172,7 @@ handle('showInFolder', (p) => { shell.showItemInFolder(p); setTimeout(applyTaskb
 handle('recycleInfo', async () => (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 });
 handle('recycleEmpty', async () => { await worker.safe('recycleEmpty', {}, null, 120000); return (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 }; });
 handle('trashItem', async (p) => { await shell.trashItem(p); return true; });
-handle('taskbarTheme', () => { clipboard.writeText(fs.readFileSync(path.join(__dirname, '..', 'docs', 'taskbar-gemix.json'), 'utf8')); return true; });
+handle('taskbarTheme', () => { clipboard.writeText(fs.readFileSync(path.join(__dirname, '..', 'docs', 'taskbar-gemix.yaml'), 'utf8')); return true; });
 handle('inbox', () => inbox());
 handle('moveFile', (src, destKey) => moveFile(src, destKey));
 
