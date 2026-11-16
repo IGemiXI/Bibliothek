@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('gx', {
   openPath: (p) => call('openPath', p),
   showInFolder: (p) => call('showInFolder', p),
   inbox: () => call('inbox'),
+  taskbarTheme: () => call('taskbarTheme'),
   recycleInfo: () => call('recycleInfo'),
   recycleEmpty: () => call('recycleEmpty'),
   trashItem: (p) => call('trashItem', p),

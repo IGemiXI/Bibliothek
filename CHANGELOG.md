@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.10.0 – Bibliothek als Desktop
+- Neue Darstellung „Als Desktop“ (Einstellungen → Darstellung): Windows bleibt normal mit Taskleiste, Startmenü und Win-Taste – die Bibliothek ist der Desktop
+- Win + D, „Desktop anzeigen“ und das Schließen des letzten Fensters führen zur Bibliothek
+- Anklicken holt die Bibliothek nicht über andere Fenster; sie erscheint nicht in Taskleiste und Alt+Tab
+- Zweitbildschirme zeigen die Schnellstart-Seite als Desktop
+- Taskleisten-Design im Bibliothek-Look für Windhawk („Design kopieren“)
+- „Vollbild“ bleibt als Option wie bisher
+
 ## 0.9.2 – Papierkorb
 - Ordner-Seite: neuer Bereich „Windows“ mit Papierkorb (Anzahl, Öffnen, Leeren mit Rückfrage), Dieser PC und Desktop
 - Rechtsklick auf eine Datei: Öffnen, Im Explorer zeigen, In den Papierkorb

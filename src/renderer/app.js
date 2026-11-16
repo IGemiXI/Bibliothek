@@ -520,15 +520,28 @@ function renderSettings() {
         </div>
       </div>
       <div class="settings-right">
-        <section class="back-card">
+        ${c.uiMode === 'desktop' ? `<section class="back-card">
+          <h2>Taskleiste im Bibliothek-Look</h2>
+          <p>Mit dem kostenlosen Programm <b>Windhawk</b> wird die Windows-Taskleiste schwarz-gold. Einmal einrichten: Windhawk installieren → oben rechts „Erkunden“ → <b>Windows 11 Taskbar Styler</b> installieren → „Einstellungen“ → „Textmodus“ → Design einfügen → Speichern.</p>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px">
+            <button class="btn gold" data-act="taskbar-theme">Design kopieren</button>
+            <button class="btn" data-act="open-url" data-url="https://windhawk.net">Windhawk öffnen</button>
+          </div>
+        </section>` : `<section class="back-card">
           <h2>Zurück zu Windows</h2>
           <p>Die Bibliothek läuft im Hintergrund weiter. Zurück kommst du mit der <b>Windows-Taste</b>, über die linke untere Bildschirmecke oder ${esc(prettyKeys(c.shortcut))}.</p>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px">
             <button class="btn gold" data-act="app-window" data-a="minimize">Minimieren</button>
             <button class="btn" data-act="app-window" data-a="desktop">Desktop anzeigen</button>
           </div>
-        </section>
+        </section>`}
         <section class="panel" style="padding:18px 22px;display:flex;flex-direction:column">
+          <h2 class="eyebrow" style="margin-bottom:12px">Darstellung</h2>
+          <div class="seg" style="margin-bottom:8px">
+            <button data-act="ui-mode" data-m="desktop" aria-pressed="${c.uiMode === 'desktop'}">Als Desktop</button>
+            <button data-act="ui-mode" data-m="full" aria-pressed="${c.uiMode !== 'desktop'}">Vollbild</button>
+          </div>
+          <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:16px">${c.uiMode === 'desktop' ? 'Windows bleibt ganz normal mit Taskleiste und Startmenü – die Bibliothek ist dein Desktop. Win + D und „Desktop anzeigen“ führen hierher.' : 'Die Bibliothek ersetzt Windows: Taskleiste versteckt, die Windows-Taste wechselt zwischen Bibliothek und Spiel.'}</div>
           <h2 class="eyebrow" style="margin-bottom:12px">Start</h2>
           <div class="seg" style="margin-bottom:8px">
             <button data-act="start-mode" data-m="off" aria-pressed="${c.startMode === 'off'}">Manuell</button>
@@ -536,12 +549,12 @@ function renderSettings() {
             <button data-act="start-mode" data-m="shell" aria-pressed="${c.startMode === 'shell'}">Exklusiv</button>
           </div>
           <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">${c.startMode === 'shell' ? 'Nach der PIN erscheint sofort die Bibliothek – Windows startet im Hintergrund trotzdem ganz normal.' : c.startMode === 'autostart' ? 'Die Bibliothek startet nach der Anmeldung automatisch – der Desktop ist kurz zu sehen.' : 'Die Bibliothek startet nur, wenn du sie öffnest.'}</div>
-          ${tg('winKey', c.winKey, 'Windows-Taste', 'Win: Bibliothek ↔ Spiel · Win + Tab: Zweitbildschirm')}
-          ${tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft')}
+          ${c.uiMode !== 'desktop' ? tg('winKey', c.winKey, 'Windows-Taste', 'Win: Bibliothek ↔ Spiel · Win + Tab: Zweitbildschirm') : ''}
+          ${c.uiMode !== 'desktop' ? tg('hideTaskbar', c.hideTaskbar, 'Taskleiste ausblenden', 'Auf allen Bildschirmen, solange die Bibliothek läuft') : ''}
           ${multiMon() ? tg('companion', c.companion, 'Zweitbildschirme', 'Eigene Seite mit Schnellstart statt Windows-Hintergrund') : ''}
-          ${multiMon() ? tg('hud', c.hud, 'Uhr auf Zweitbildschirmen', 'Kleine Leiste mit Uhr, Nachrichten und offenen Fenstern – mit der Maus verschiebbar') : ''}
-          ${multiMon() && c.hud ? `<div class="set-row"><div class="l"><span>Uhr in eine Ecke setzen</span><span>Oder einfach mit der Maus hinziehen – wird gemerkt</span></div><div class="seg">${[['tl', '↖'], ['tr', '↗'], ['bl', '↙'], ['br', '↘']].map(([k, l]) => `<button data-act="hud-pos" data-k="${k}" aria-pressed="${(c.hudPos || 'tl') === k}" title="${{ tl: 'Oben links', tr: 'Oben rechts', bl: 'Unten links', br: 'Unten rechts' }[k]}">${l}</button>`).join('')}</div></div>` : ''}
-          ${tg('hotCorner', c.hotCorner, 'Ecke unten links', 'Maus in die Ecke holt die Bibliothek zurück (nicht beim Spielen)')}
+          ${multiMon() && c.uiMode !== 'desktop' ? tg('hud', c.hud, 'Uhr auf Zweitbildschirmen', 'Kleine Leiste mit Uhr, Nachrichten und offenen Fenstern – mit der Maus verschiebbar') : ''}
+          ${multiMon() && c.hud && c.uiMode !== 'desktop' ? `<div class="set-row"><div class="l"><span>Uhr in eine Ecke setzen</span><span>Oder einfach mit der Maus hinziehen – wird gemerkt</span></div><div class="seg">${[['tl', '↖'], ['tr', '↗'], ['bl', '↙'], ['br', '↘']].map(([k, l]) => `<button data-act="hud-pos" data-k="${k}" aria-pressed="${(c.hudPos || 'tl') === k}" title="${{ tl: 'Oben links', tr: 'Oben rechts', bl: 'Unten links', br: 'Unten rechts' }[k]}">${l}</button>`).join('')}</div></div>` : ''}
+          ${c.uiMode === 'desktop' ? '' : tg('hotCorner', c.hotCorner, 'Ecke unten links', 'Maus in die Ecke holt die Bibliothek zurück (nicht beim Spielen)')}
         </section>
         <div class="power-grid">
           <button class="power-btn" data-act="power" data-a="lock">${I.lock}Sperren</button>
@@ -1035,6 +1048,12 @@ const ACTIONS = {
     const r = await gx.notifDismiss(d.h ? { h: +d.h } : { id: d.id }).catch(() => null);
     if (r) { S.notif = r; refreshNotifPop(); if (IS_COMPANION && window.renderCompanion) window.renderCompanion(); else { renderTop(); renderSide(); } }
   },
+  'ui-mode': async (d) => {
+    if (d.m === (S.state.config.uiMode || 'full')) return;
+    toast(d.m === 'desktop' ? 'Wechsle zu „Als Desktop“ – die Bibliothek startet kurz neu …' : 'Wechsle zu „Vollbild“ – die Bibliothek startet kurz neu …');
+    await act(gx.setConfig({ uiMode: d.m }));
+  },
+  'taskbar-theme': () => act(gx.taskbarTheme(), 'Design kopiert – jetzt in Windhawk einfügen.'),
   'hud-pos': (d) => act(gx.setConfig({ hudPos: d.k })),
   'notif-clear': async () => {
     const r = await gx.notifClear().catch(() => null);

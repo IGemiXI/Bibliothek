@@ -109,6 +109,33 @@ public class GxHook {
   static bool pinned;
 
   public static volatile bool Enabled = false;
+  public static volatile bool DesktopMode = false;
+  static long lastDesk;
+
+  static bool IsDesktopClass(IntPtr h) {
+    var sb = new StringBuilder(64);
+    GetClassName(h, sb, 64);
+    string c = sb.ToString();
+    return c == "Progman" || c == "WorkerW";
+  }
+
+  /* Desktop-Modus: Windows hat den Desktop nach vorne geholt → Bibliothek (und Zweitbildschirm-Seiten) sofort darüber legen */
+  static void RecoverDesktop(long fg) {
+    long now = Environment.TickCount;
+    if (now - lastDesk < 300) return;
+    lastDesk = now;
+    var lib = new IntPtr(LibHwnd);
+    if (!IsWindow(lib)) return;
+    foreach (var c in CompHwnds) {
+      var ch = new IntPtr(c);
+      if (!IsWindow(ch)) continue;
+      if (IsIconic(ch) || !IsWindowVisible(ch)) ShowWindow(ch, 4); // SW_SHOWNOACTIVATE
+      SetWindowPos(ch, IntPtr.Zero, 0, 0, 0, 0, 0x0013);              // HWND_TOP, ohne Fokus
+    }
+    Emit("desktop", fg, 0);
+    if (!IsWindowVisible(lib)) ShowWindow(lib, 4);
+    ForceForeground(lib);
+  }
   public static long LibHwnd = 0;
   public static long[] CompHwnds = new long[0];
 
@@ -207,6 +234,7 @@ public class GxHook {
       fgProc = (hk, ev, hwnd, o, c, th, tm) => {
         long v = hwnd.ToInt64();
         if (!IsOurs(v) && IsWindowVisible(hwnd) && !IsShellWindow(hwnd)) lastOther = v;
+        if (DesktopMode && LibHwnd != 0 && IsDesktopClass(hwnd)) RecoverDesktop(v);
       };
       SetWinEventHook(3, 3, IntPtr.Zero, fgProc, 0, 0, 0); // EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT
       // Alle 30 s die Tastenabfrage erneuern – Windows schaltet sie sonst still ab, wenn sie einmal zu langsam war
@@ -632,6 +660,7 @@ while ($true) {
         }
         $data = $res
       }
+      'desktopMode' { [GxHook]::DesktopMode = [bool]$a.on; $data = $true }
       'winkey'    { [GxHook]::Enabled = [bool]$a.on; $data = $true }
       'setHwnds'  { [GxHook]::LibHwnd = [long]$a.lib; [GxHook]::CompHwnds = [long[]]@($a.comps); $data = $true }
       'setPinned' { [GxHook]::SetPinned([bool]$a.on); $data = $true }

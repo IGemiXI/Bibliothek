@@ -1,0 +1,20 @@
+{
+  "controlStyles[0].target": "Rectangle#BackgroundFill",
+  "controlStyles[0].styles[0]": "Fill=#F20D0B08",
+  "controlStyles[1].target": "Rectangle#BackgroundStroke",
+  "controlStyles[1].styles[0]": "Fill=#66D6B268",
+  "controlStyles[2].target": "Taskbar.TaskListLabeledButtonPanel@RunningIndicatorStates > Rectangle#RunningIndicator",
+  "controlStyles[2].styles[0]": "Fill=#D6B268",
+  "controlStyles[2].styles[1]": "Fill@ActiveRunningIndicator=#F3E6C4",
+  "controlStyles[2].styles[2]": "Fill@InactiveRunningIndicator=#8C7444",
+  "controlStyles[2].styles[3]": "RadiusX=1.5",
+  "controlStyles[2].styles[4]": "RadiusY=1.5",
+  "controlStyles[3].target": "Taskbar.TaskListButton",
+  "controlStyles[3].styles[0]": "CornerRadius=8",
+  "controlStyles[4].target": "TextBlock#LabelControl",
+  "controlStyles[4].styles[0]": "Foreground=#EFE9DC",
+  "controlStyles[5].target": "TextBlock#InnerTextBlock",
+  "controlStyles[5].styles[0]": "Foreground=#F3E6C4",
+  "controlStyles[6].target": "Taskbar.TaskbarBackground#HoverFlyoutBackgroundControl > Grid > Rectangle#BackgroundFill",
+  "controlStyles[6].styles[0]": "Fill=#F2141009"
+}

@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, dialog, screen, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, screen, globalShortcut, nativeImage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -56,6 +56,7 @@ const DEFAULT_CONFIG = {
   startMode: 'off',          // off | autostart | shell
   hideTaskbar: true,
   hotCorner: true,
+  uiMode: 'full',            // 'full' = Vollbild statt Windows · 'desktop' = Bibliothek ist der Desktop, Windows bleibt normal
   shortcut: 'Control+Alt+G',
   folders: null,             // wird beim ersten Start befüllt
   customTiles: [],
@@ -108,8 +109,12 @@ function appTitle() {
   return (config.ownerName ? config.ownerName + ' ' : '') + 'Bibliothek';
 }
 
+const DESK = () => config.uiMode === 'desktop';
+const winKeyOn = () => !!config.winKey && !DESK();
+let noBackUntil = 0;
 function moveToDisplay() {
   if (!win || win.isDestroyed()) return;
+  if (DESK()) { win.setBounds(targetDisplay().workArea); placeCorner(); syncCompanions(); return; }
   const { bounds } = targetDisplay();
   win.setFullScreen(false);
   win.setBounds(bounds);
@@ -133,16 +138,17 @@ function syncCompanions() {
   }
   for (const d of wanted) {
     let w = companions.get(d.id);
-    if (w && !w.isDestroyed()) { w.setBounds(d.bounds); continue; }
+    const db = DESK() ? d.workArea : d.bounds;
+    if (w && !w.isDestroyed()) { w.setBounds(db); continue; }
     w = new BrowserWindow({
-      x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
+      x: db.x, y: db.y, width: db.width, height: db.height,
       frame: false, show: false, skipTaskbar: true, resizable: false, movable: false,
       minimizable: false, maximizable: false, fullscreenable: false, hasShadow: false,
       backgroundColor: '#0b0a08', title: appTitle(),
       webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
     });
     w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { companion: String(d.id) } });
-    w.once('ready-to-show', () => { w.showInactive(); w.setBounds(d.bounds); setTimeout(() => toBack(w), 200); });
+    w.once('ready-to-show', () => { w.showInactive(); w.setBounds(db); setTimeout(() => toBack(w), 200); });
     // Normal liegt die Seite wie ein Hintergrund unten – außer sie wurde mit Windows + Tab nach vorne geholt
     w.on('focus', () => { if (!w.pinnedFront) setTimeout(() => toBack(w), 30); });
     w.on('page-title-updated', (e) => e.preventDefault());
@@ -184,7 +190,7 @@ function hudPlace(w) {
 }
 function syncHud() {
   const main = targetDisplay().id;
-  const wanted = config.hud ? screen.getAllDisplays().filter((d) => d.id !== main) : [];
+  const wanted = config.hud && !DESK() ? screen.getAllDisplays().filter((d) => d.id !== main) : [];
   for (const [id, w] of huds) {
     if (!wanted.some((d) => d.id === id)) { huds.delete(id); if (!w.isDestroyed()) w.destroy(); }
   }
@@ -345,12 +351,20 @@ async function openUrl(url, displayId) {
 }
 
 function createWindow() {
-  const { bounds } = targetDisplay();
+  const desk = DESK();
+  // Desktop-Modus: Bibliothek füllt den Bereich über der Taskleiste, liegt unten und taucht weder in Taskleiste noch Alt+Tab auf
+  const bounds = desk ? targetDisplay().workArea : targetDisplay().bounds;
   win = new BrowserWindow({
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     show: false,
     frame: false,
-    fullscreen: true,
+    fullscreen: !desk,
+    skipTaskbar: desk,
+    minimizable: !desk,
+    maximizable: !desk,
+    resizable: !desk,
+    movable: !desk,
+    fullscreenable: !desk,
     backgroundColor: '#0b0a08',
     title: appTitle(),
     autoHideMenuBar: true,
@@ -365,11 +379,16 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => { win.show(); win.focus(); setTimeout(syncHwnds, 500); });
   win.on('page-title-updated', (e) => e.preventDefault());
-  win.on('focus', () => { applyTaskbar(); updateCorner(); pushWindows(); });
+  win.on('focus', () => {
+    applyTaskbar(); updateCorner(); pushWindows();
+    // Wie der echte Desktop: anklicken holt die Bibliothek nicht über andere Fenster
+    if (DESK()) setTimeout(() => { if (Date.now() > noBackUntil && win && !win.isDestroyed()) toBack(win); }, 120);
+  });
   win.on('blur', () => updateCorner());
   win.on('restore', () => applyTaskbar());
   win.on('close', (e) => {
     // Im Exklusiv-Modus ist die Bibliothek die Oberfläche – nicht versehentlich schließen
+    if (!quitting && DESK()) { e.preventDefault(); return; }
     if (!quitting && IS_SHELL_LAUNCH) { e.preventDefault(); win.minimize(); }
   });
   win.webContents.on('render-process-gone', () => { if (!quitting) win.reload(); });
@@ -397,13 +416,14 @@ function createCorner() {
 
 function updateCorner() {
   if (!corner || corner.isDestroyed()) return;
-  const want = config.hotCorner && win && !win.isDestroyed() && !win.isFocused() && running.size === 0;
+  const want = config.hotCorner && !DESK() && win && !win.isDestroyed() && !win.isFocused() && running.size === 0;
   if (want && !corner.isVisible()) corner.showInactive();
   if (!want && corner.isVisible()) corner.hide();
 }
 
 function bringToFront() {
   if (!win || win.isDestroyed()) return;
+  noBackUntil = Date.now() + 1500;
   if (win.isMinimized()) win.restore();
   win.show();
   win.setAlwaysOnTop(true, 'screen-saver');
@@ -430,6 +450,14 @@ function onWinKey() {
 }
 helper.on('winkey', onWinKey);
 
+/* Desktop-Modus: Windows zeigt den Desktop (Win+D, „Desktop anzeigen“, letztes Fenster zu) → der Helfer holt die Bibliothek sofort zurück */
+helper.on('desktop', () => {
+  noBackUntil = Date.now() + 1500;
+  if (win && !win.isDestroyed() && !win.isVisible()) win.showInactive();
+  for (const w of companions.values()) if (!w.isDestroyed() && !w.isVisible()) w.showInactive();
+  pushWindows();
+});
+
 function onWinTab(ev) {
   const on = !!(ev && ev.pinned);
   logStart('Win+Tab → Zweitbildschirm ' + (on ? 'nach vorne' : 'nach hinten'));
@@ -446,7 +474,7 @@ function syncHwnds() {
 
 async function applyTaskbar() {
   if (process.platform !== 'win32') return;
-  if (!config.hideTaskbar) return showTaskbar();
+  if (!config.hideTaskbar || DESK()) return showTaskbar();
   const prev = await helper.safe('taskbar', { show: false, restore: -1 });
   helper.safe('taskbarGuard', { on: true });
   // Ursprüngliche Einstellung einmal merken (nur wenn sie nicht schon „automatisch ausblenden“ war)
@@ -559,7 +587,7 @@ function fullState() {
     config: {
       ownerName: config.ownerName, winKey: config.winKey, displayId: config.displayId, sideCollapsed: !!config.sideCollapsed,
       hasSgdbKey: !!config.sgdbKey, companion: config.companion, hud: config.hud !== false, hudPos: config.hudPos || 'tl', quickTiles: config.quickTiles || [], compLayout: config.compLayout || { hello: true, side: true },
-      startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner,
+      startMode: config.startMode, hideTaskbar: config.hideTaskbar, hotCorner: config.hotCorner, uiMode: config.uiMode || 'full',
       shortcut: config.shortcut, folders: config.folders, desktopPath: app.getPath('desktop'), customTiles: config.customTiles,
     },
     user: os.userInfo().username,
@@ -1116,9 +1144,10 @@ handle('setConfig', async (patch) => {
   saveConfig();
   if ('ownerName' in patch && win) win.setTitle(appTitle());
   if ('displayId' in patch) moveToDisplay();
-  if ('winKey' in patch) helper.safe('winkey', { on: !!config.winKey });
+  if ('winKey' in patch) helper.safe('winkey', { on: winKeyOn() });
   if ('companion' in patch) syncCompanions();
   if ('hudPos' in patch) { config.hudSpots = {}; saveConfig(); }
+  if ('uiMode' in patch) { saveConfig(); setTimeout(() => { quitting = true; app.relaunch(); app.quit(); }, 500); }
   if ('hud' in patch || 'hudPos' in patch) syncHud();
   if ('sgdbKey' in patch) { for (const k of Object.keys(artMap)) if (!artMap[k].cover) delete artMap[k]; fetchMissingArt(); }
   if ('hideTaskbar' in patch) applyTaskbar();
@@ -1143,6 +1172,7 @@ handle('showInFolder', (p) => { shell.showItemInFolder(p); setTimeout(applyTaskb
 handle('recycleInfo', async () => (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 });
 handle('recycleEmpty', async () => { await worker.safe('recycleEmpty', {}, null, 120000); return (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 }; });
 handle('trashItem', async (p) => { await shell.trashItem(p); return true; });
+handle('taskbarTheme', () => { clipboard.writeText(fs.readFileSync(path.join(__dirname, '..', 'docs', 'taskbar-gemix.json'), 'utf8')); return true; });
 handle('inbox', () => inbox());
 handle('moveFile', (src, destKey) => moveFile(src, destKey));
 
@@ -1174,6 +1204,7 @@ handle('power', async (action) => {
 
 handle('appWindow', async (action) => {
   if (action === 'front') { bringToFront(); return true; }
+  if (DESK() && (action === 'minimize' || action === 'desktop')) { toBack(win); return true; }
   if (action === 'minimize') { await showTaskbar(); win.minimize(); }
   else if (action === 'desktop') {
     await showTaskbar();
@@ -1386,8 +1417,9 @@ app.whenReady().then(async () => {
   helper.start().then((ok) => {
     if (!ok) return;
     applyTaskbar();
-    helper.safe('winkey', { on: !!config.winKey });
+    helper.safe('winkey', { on: winKeyOn() });
     syncHwnds();
+    helper.safe('desktopMode', { on: DESK() });
     // Startmodus bei jedem Start prüfen und reparieren (z. B. wenn Windows den Autostart deaktiviert hat)
     if (config.startMode !== 'off') applyStartMode(config.startMode).catch((e) => logStart('Startmodus-Fehler: ' + e.message));
     if (IS_SHELL_LAUNCH) startExplorerBehind();
@@ -1402,6 +1434,7 @@ app.whenReady().then(async () => {
   const onDisplays = U.debounce(() => { moveToDisplay(); pushState(); }, 800);
   screen.on('display-added', onDisplays);
   screen.on('display-removed', onDisplays);
+  screen.on('display-metrics-changed', U.debounce(() => { if (DESK()) moveToDisplay(); }, 800));
 });
 
 app.on('second-instance', () => bringToFront());
