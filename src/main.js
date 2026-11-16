@@ -1172,7 +1172,14 @@ handle('showInFolder', (p) => { shell.showItemInFolder(p); setTimeout(applyTaskb
 handle('recycleInfo', async () => (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 });
 handle('recycleEmpty', async () => { await worker.safe('recycleEmpty', {}, null, 120000); return (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 }; });
 handle('trashItem', async (p) => { await shell.trashItem(p); return true; });
-handle('taskbarTheme', () => { clipboard.writeText(fs.readFileSync(path.join(__dirname, '..', 'docs', 'taskbar-gemix.yaml'), 'utf8')); return true; });
+handle('taskbarTheme', () => {
+  // Wappen für den Start-Knopf an einen festen Ort kopieren (Windhawk braucht einen echten Dateipfad)
+  const crest = path.join(app.getPath('userData'), 'start-crest.png');
+  try { fs.copyFileSync(path.join(__dirname, '..', 'assets', 'start-crest.png'), crest); } catch {}
+  const yaml = fs.readFileSync(path.join(__dirname, '..', 'docs', 'taskbar-gemix.yaml'), 'utf8').replace(/\{CREST\}/g, crest);
+  clipboard.writeText(yaml);
+  return true;
+});
 handle('inbox', () => inbox());
 handle('moveFile', (src, destKey) => moveFile(src, destKey));
 

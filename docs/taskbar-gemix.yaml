@@ -1,26 +1,122 @@
+# GEMIX Bibliothek – Taskleisten-Design für „Windows 11 Taskbar Styler“ (Windhawk, Textmodus)
 controlStyles:
-  - target: Rectangle#BackgroundFill
+  # Hintergrund: warmes Schwarz wie die Bibliothek
+  - target: Taskbar.TaskbarFrame > Grid#RootGrid > Taskbar.TaskbarBackground > Grid > Rectangle#BackgroundFill
     styles:
-      - Fill=#F20D0B08
+      - Fill:=<LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#F7171410" Offset="0"/><GradientStop Color="#FC0B0A08" Offset="1"/></LinearGradientBrush>
+  # Goldene Linie oben, zu den Rändern ausblendend
   - target: Rectangle#BackgroundStroke
     styles:
-      - Fill=#66D6B268
-  - target: Taskbar.TaskListLabeledButtonPanel@RunningIndicatorStates > Rectangle#RunningIndicator
+      - Fill:=<LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00D6B268" Offset="0"/><GradientStop Color="#99D6B268" Offset="0.5"/><GradientStop Color="#00D6B268" Offset="1"/></LinearGradientBrush>
+  # Start-Knopf: Wappen der Bibliothek statt Windows-Logo
+  - target: Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=StartButton] > Taskbar.TaskListButtonPanel > Grid > Border#BackgroundElement, Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=StartButton] > Taskbar.TaskListButtonPanel > Border#BackgroundElement
     styles:
-      - Fill=#D6B268
-      - Fill@ActiveRunningIndicator=#F3E6C4
-      - Fill@InactiveRunningIndicator=#8C7444
-      - RadiusX=1.5
-      - RadiusY=1.5
+      - Background:=<ImageBrush Stretch="Uniform" ImageSource="{CREST}" />
+  - target: Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=StartButton] > Taskbar.TaskListButtonPanel > Grid > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon, Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=StartButton] > Taskbar.TaskListButtonPanel > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon
+    styles:
+      - Visibility=Collapsed
+  # Knöpfe der offenen Programme: dezent golden beim Drüberfahren, aktives Programm mit Goldrahmen, blinkende Apps orange
+  - target: Grid#IconPanel@CommonStates > Border#BackgroundElement, Taskbar.TaskListLabeledButtonPanel@CommonStates > Border#BackgroundElement
+    styles:
+      - CornerRadius=8
+      - BorderThickness=1
+      - Background=Transparent
+      - BorderBrush=Transparent
+      - Background@InactivePointerOver=#1AD6B268
+      - Background@InactivePressed=#12D6B268
+      - Background@ActiveNormal=#21D6B268
+      - BorderBrush@ActiveNormal=#66D6B268
+      - Background@ActivePointerOver=#2ED6B268
+      - BorderBrush@ActivePointerOver=#99D6B268
+      - Background@ActivePressed=#21D6B268
+      - BorderBrush@ActivePressed=#66D6B268
+      - Background@MultiWindowPointerOver=#1AD6B268
+      - Background@MultiWindowActive=#21D6B268
+      - BorderBrush@MultiWindowActive=#66D6B268
+      - Background@RequestingAttention=#33E8873A
+      - BorderBrush@RequestingAttention=#99E8873A
+      - Background@RequestingAttentionPointerOver=#44E8873A
+      - BorderBrush@RequestingAttentionPointerOver=#CCE8873A
+  # Start, Suche, Taskansicht
+  - target: Taskbar.TaskListButtonPanel@CommonStates > Grid > Border#BackgroundElement, Taskbar.TaskListButtonPanel@CommonStates > Border#BackgroundElement
+    styles:
+      - CornerRadius=8
+      - Background@InactivePointerOver=#1AD6B268
+      - Background@InactivePressed=#12D6B268
+      - Background@ActiveNormal=#21D6B268
+      - Background@ActivePointerOver=#2ED6B268
+  - target: Taskbar.ExperienceToggleButton
+    styles:
+      - CornerRadius=8
   - target: Taskbar.TaskListButton
     styles:
       - CornerRadius=8
+  - target: Border#MultiWindowElement
+    styles:
+      - Background=#14D6B268
+      - CornerRadius=8
+  # Strich unter laufenden Programmen: gold, aktiv heller und breiter, blinkend orange
+  - target: Grid#IconPanel@RunningIndicatorStates > Rectangle#RunningIndicator, Taskbar.TaskListLabeledButtonPanel@RunningIndicatorStates > Rectangle#RunningIndicator
+    styles:
+      - Fill=#8C7444
+      - Height=3
+      - RadiusX=1.5
+      - RadiusY=1.5
+      - Width=6
+      - Fill@ActiveRunningIndicator=#E9CF92
+      - Width@ActiveRunningIndicator=18
+      - Fill@InactiveRunningIndicator=#8C7444
+      - Fill@RequestingAttentionRunningIndicator=#E8873A
+      - Width@RequestingAttentionRunningIndicator=14
+  # Schrift
   - target: TextBlock#LabelControl
     styles:
       - Foreground=#EFE9DC
-  - target: TextBlock#InnerTextBlock
+  - target: TextBlock#TimeInnerTextBlock
     styles:
       - Foreground=#F3E6C4
+      - FontWeight=SemiBold
+  - target: TextBlock#DateInnerTextBlock
+    styles:
+      - Foreground=#B9B0A0
+  - target: SystemTray.AdaptiveTextBlock#Base > TextBlock#InnerTextBlock
+    styles:
+      - Foreground=#D6B268
+  # Infobereich: goldener Schimmer beim Drüberfahren
+  - target: SystemTray.OmniButton > Grid@CommonStates > Border#BackgroundBorder
+    styles:
+      - CornerRadius=8
+      - Background@PointerOver=#1AD6B268
+      - Background@Pressed=#12D6B268
+      - Background@Checked=#21D6B268
+      - Background@CheckedPointerOver=#2ED6B268
+  - target: SystemTray.NotifyIconView > Grid#ContainerGrid@ > Border#BackgroundBorder, SystemTray.IconView > Grid#ContainerGrid@ > Border#BackgroundBorder, SystemTray.ChevronIconView > Grid#ContainerGrid@ > Border#BackgroundBorder
+    styles:
+      - CornerRadius=8
+      - Background@PointerOver=#1AD6B268
+      - Background@Pressed=#12D6B268
+  - target: Grid#ContainerGrid@ > Rectangle#ShowDesktopPipe
+    styles:
+      - Fill@PointerOver=#D6B268
+  # Vorschaubilder, Rechtsklick-Menüs und Tooltips im selben Stil
   - target: Taskbar.TaskbarBackground#HoverFlyoutBackgroundControl > Grid > Rectangle#BackgroundFill
     styles:
-      - Fill=#F2141009
+      - Fill=#F5141009
+  - target: TextBlock#DisplayNameTextBlock
+    styles:
+      - Foreground=#EFE9DC
+  - target: MenuFlyoutPresenter
+    styles:
+      - CornerRadius=10
+  - target: MenuFlyoutPresenter > Border
+    styles:
+      - Background=#F7141009
+      - BorderBrush=#59D6B268
+      - BorderThickness=1
+      - CornerRadius=10
+  - target: ToolTip > ContentPresenter#LayoutRoot
+    styles:
+      - Background=#F7141009
+      - BorderBrush=#59D6B268
+      - BorderThickness=1
+      - CornerRadius=8

@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.10.2 – Taskleisten-Design überarbeitet
+- Start-Knopf mit dem Wappen der Bibliothek
+- Laufende Programme: Goldstrich, aktives Programm mit Goldrahmen, blinkende Apps orange
+- Goldener Schimmer beim Drüberfahren, Uhr und Infobereich in Gold, Menüs und Tooltips im Bibliothek-Stil
+
 ## 0.10.1
 - Taskleisten-Design im neuen YAML-Format von Windhawk („Design kopieren“)
 
