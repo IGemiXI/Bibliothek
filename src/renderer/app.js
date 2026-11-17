@@ -569,7 +569,7 @@ function renderSettings() {
           ${multiMon() ? `<div><div class="muted" style="font-size:12px;margin-bottom:8px">Bibliothek anzeigen auf</div>
             <div class="seg">${S.state.displays.map((d) => `<button data-act="display" data-id="${d.id}" aria-pressed="${(c.displayId || S.state.displays.find((x) => x.primary).id) === d.id}">Bildschirm ${d.nr}${d.primary ? ' ★' : ''}</button>`).join('')}</div></div>` : ''}
         </section>
-        <div class="muted" style="font-size:11.5px;text-align:center">Bibliothek ${esc(S.state.version)} · ${S.state.canUpdate ? '<a data-act="update">Nach Updates suchen</a> · ' : ''}<a data-act="app-window" data-a="quit">Beenden</a></div>
+        <div class="muted" style="font-size:11.5px;text-align:center">Bibliothek ${esc(S.state.version)} · ${S.state.canUpdate ? '<a data-act="update">Nach Updates suchen</a> · ' : ''}<a data-act="app-window" data-a="quit">Beenden</a> · <a data-act="uninstall-all" style="color:#e07b6f">Deinstallieren</a></div>
       </div>
     </div>`;
   (c.customTiles || []).forEach(async (t, i) => {
@@ -1052,6 +1052,24 @@ const ACTIONS = {
     if (d.m === (S.state.config.uiMode || 'full')) return;
     toast(d.m === 'desktop' ? 'Wechsle zu „Als Desktop“ – die Bibliothek startet kurz neu …' : 'Wechsle zu „Vollbild“ – die Bibliothek startet kurz neu …');
     await act(gx.setConfig({ uiMode: d.m }));
+  },
+  'uninstall-all': async () => {
+    const info = await gx.uninstallInfo().catch(() => ({}));
+    let wh = false;
+    const p = confirmBox('Bibliothek komplett entfernen?', `<p style="margin:0 0 10px;line-height:1.6">Alles wird rückgängig gemacht – so, als wäre die Bibliothek nie installiert gewesen:</p>
+      <ul style="margin:0 0 12px 18px;padding:0;line-height:1.7;font-size:13px">
+        <li>Start mit Windows und Exklusiv-Start werden entfernt – Windows startet wieder ganz normal</li>
+        <li>Taskleiste wird wieder sichtbar, so wie sie vorher eingestellt war</li>
+        <li>Programmordner wird gelöscht<br><span class="muted" style="font-size:11.5px">${esc(info.appDir || '')}</span></li>
+        <li>Einstellungen, Cover, Icons und Protokolle werden gelöscht<br><span class="muted" style="font-size:11.5px">${esc(info.dataDir || '')}</span></li>
+      </ul>
+      ${info.windhawk ? `<label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer"><input type="checkbox" id="un-wh" style="margin-top:3px;accent-color:#d6b268"><span><b>Windhawk auch deinstallieren</b><br><span class="muted" style="font-size:11.5px">Entfernt auch das Taskleisten-Design. Windhawk fragt dann selbst noch einmal nach.</span></span></label>` : ''}
+      <p class="muted" style="margin:12px 0 0;font-size:11.5px">Spiele, Programme und deine Dateien bleiben unberührt.</p>`, 'Alles entfernen', true);
+    const cb = document.getElementById('un-wh');
+    if (cb) cb.onchange = () => { wh = cb.checked; };
+    if (!(await p)) return;
+    toast('Bibliothek wird entfernt … sie schließt sich gleich.');
+    await gx.uninstallAll({ windhawk: wh }).catch(() => {});
   },
   'taskbar-theme': () => act(gx.taskbarTheme(), 'Design kopiert – jetzt in Windhawk einfügen.'),
   'hud-pos': (d) => act(gx.setConfig({ hudPos: d.k })),

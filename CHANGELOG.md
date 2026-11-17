@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.10.3 – Deinstallieren
+- Einstellungen → ganz unten „Deinstallieren“: entfernt Autostart und Exklusiv-Start, stellt die Taskleiste wieder her und löscht Programmordner, Daten und Electron-Cache – auf Wunsch auch Windhawk
+
 ## 0.10.2 – Taskleisten-Design überarbeitet
 - Start-Knopf mit dem Wappen der Bibliothek
 - Laufende Programme: Goldstrich, aktives Programm mit Goldrahmen, blinkende Apps orange

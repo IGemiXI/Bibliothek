@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('gx', {
   showInFolder: (p) => call('showInFolder', p),
   inbox: () => call('inbox'),
   taskbarTheme: () => call('taskbarTheme'),
+  uninstallInfo: () => call('uninstallInfo'),
+  uninstallAll: (o) => call('uninstallAll', o),
   recycleInfo: () => call('recycleInfo'),
   recycleEmpty: () => call('recycleEmpty'),
   trashItem: (p) => call('trashItem', p),

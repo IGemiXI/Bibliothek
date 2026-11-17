@@ -27,6 +27,7 @@ if (!app.requestSingleInstanceLock()) {
 /* ─────────────────────────── Daten ─────────────────────────── */
 
 const DATA = app.getPath('userData');
+const APP_DIR = path.join(__dirname, '..');
 const F = {
   config: path.join(DATA, 'config.json'),
   stats: path.join(DATA, 'stats.json'),
@@ -1172,6 +1173,42 @@ handle('showInFolder', (p) => { shell.showItemInFolder(p); setTimeout(applyTaskb
 handle('recycleInfo', async () => (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 });
 handle('recycleEmpty', async () => { await worker.safe('recycleEmpty', {}, null, 120000); return (await worker.safe('recycleInfo', {}, null, 20000)) || { count: 0, size: 0 }; });
 handle('trashItem', async (p) => { await shell.trashItem(p); return true; });
+/* Alles rückgängig machen: Autostart, Exklusiv-Start, Taskleiste – danach Programmordner, Daten und Electron-Cache löschen */
+handle('uninstallInfo', async () => {
+  const entries = (await worker.safe('uninstall', {}, [], 30000)) || [];
+  const wh = entries.find((e) => /^windhawk/i.test(e.DisplayName || ''));
+  return { appDir: APP_DIR, dataDir: DATA, windhawk: !!(wh && wh.UninstallString) };
+});
+handle('uninstallAll', async (opts = {}) => {
+  logStart('Deinstallation gestartet');
+  // 1. Start mit Windows und Exklusiv-Start entfernen
+  try { await applyStartMode('off'); } catch {}
+  await helper.safe('cleanupReg', { names: [LOGIN_NAME, 'Bibliothek.App', 'electron.app.Bibliothek', 'Electron'] }, null, 10000);
+  // 2. Taskleiste wie vorher (sichtbar, ursprüngliches Auto-Ausblenden)
+  try { await showTaskbar(); } catch {}
+  // 3. Windhawk-Deinstallation starten (fragt selbst nach)
+  if (opts.windhawk) {
+    const entries = (await worker.safe('uninstall', {}, [], 30000)) || [];
+    const wh = entries.find((e) => /^windhawk/i.test(e.DisplayName || ''));
+    if (wh && wh.UninstallString) spawn(wh.UninstallString, [], { shell: true, detached: true, stdio: 'ignore' }).unref();
+  }
+  // 4. Nach dem Beenden alles löschen
+  const pkgOk = (() => { try { return require(path.join(APP_DIR, 'package.json')).name === 'bibliothek'; } catch { return false; } })();
+  const q = (x) => '"' + x + '"';
+  const lines = ['@echo off', 'set n=0', 'ping 127.0.0.1 -n 4 >nul', ':retry'];
+  if (pkgOk) lines.push(`rd /s /q ${q(APP_DIR)} 2>nul`);
+  lines.push(`rd /s /q ${q(DATA)} 2>nul`);
+  lines.push(`if exist ${q(pkgOk ? APP_DIR : DATA)} (ping 127.0.0.1 -n 2 >nul & set /a n+=1 & if %n% lss 20 goto retry)`);
+  lines.push('rd /s /q "%LOCALAPPDATA%\\electron" 2>nul', 'rd /s /q "%LOCALAPPDATA%\\electron-builder" 2>nul');
+  lines.push('tasklist /fi "imagename eq explorer.exe" | find /i "explorer.exe" >nul || start "" explorer.exe');
+  lines.push('(goto) 2>nul & del "%~f0"');
+  const script = path.join(os.tmpdir(), 'bibliothek-entfernen.cmd');
+  fs.writeFileSync(script, lines.join('\r\n') + '\r\n');
+  spawn('cmd.exe', ['/c', script], { detached: true, stdio: 'ignore', windowsHide: true, cwd: os.tmpdir() }).unref();
+  setTimeout(() => { quitting = true; app.quit(); }, 600);
+  return true;
+});
+
 handle('taskbarTheme', () => {
   // Wappen für den Start-Knopf an einen festen Ort kopieren (Windhawk braucht einen echten Dateipfad)
   const crest = path.join(app.getPath('userData'), 'start-crest.png');

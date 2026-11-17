@@ -702,6 +702,16 @@ while ($true) {
           $data = 'repariert'
         } else { $data = 'ok' }
       }
+      'cleanupReg' {
+        # Autostart-Einträge der Bibliothek restlos entfernen
+        foreach ($n in $a.names) {
+          Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name $n -ErrorAction SilentlyContinue
+          Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run' -Name $n -ErrorAction SilentlyContinue
+        }
+        $sh = (Get-ItemProperty -Path $winlogon -Name Shell -ErrorAction SilentlyContinue).Shell
+        if ($sh -and $sh -match 'electron|bibliothek') { Remove-ItemProperty -Path $winlogon -Name Shell -ErrorAction SilentlyContinue }
+        $data = $true
+      }
       'shellGet'  { $data = (Get-ItemProperty -Path $winlogon -Name Shell -ErrorAction SilentlyContinue).Shell }
       'shellSet'  {
         if ($a.value) { Set-ItemProperty -Path $winlogon -Name Shell -Value ([string]$a.value) }
